@@ -1,0 +1,25 @@
+{
+  "name": "vsm-monorepo",
+  "version": "1.0.0",
+  "description": "Vietnam Student Marathon - Full Stack Application",
+  "scripts": {
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "dev:all": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\" \"npm run admin:dev\"",
+    "backend:dev": "cd backend && npm run dev",
+    "frontend:dev": "cd frontend && pnpm run dev",
+    "admin:dev": "cd admin-page && pnpm run dev --port 3002",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && pnpm install && cd ../admin-page && pnpm install",
+    "build:all": "cd frontend && pnpm run build && cd ../admin-page && pnpm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "keywords": [
+    "vsm",
+    "marathon",
+    "student",
+    "fullstack"
+  ],
+  "author": "VSM Team",
+  "license": "MIT"
+}

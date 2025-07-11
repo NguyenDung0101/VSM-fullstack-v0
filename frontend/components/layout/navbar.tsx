@@ -19,7 +19,6 @@ const navItems = [
   { href: "/", label: "Trang chủ" },
   { href: "/events", label: "Sự kiện" },
   { href: "/news", label: "Tin tức" },
-  { href: "/shop", label: "Cửa hàng" },
   { href: "/about", label: "Giới thiệu" },
 ];
 
