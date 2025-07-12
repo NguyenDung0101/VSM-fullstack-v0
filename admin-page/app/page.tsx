@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
 export default function AdminHomePage() {
-  // Redirect to admin dashboard by default
-  redirect("/admin");
+  // Redirect đến admin page trên port 3002
+  redirect("http://localhost:3002/admin");
 }
