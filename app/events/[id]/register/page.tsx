@@ -41,7 +41,10 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { mockEvents, type Event } from "@/lib/mock-data";
+import eventsApi, { BackendEvent } from "@/lib/api/events";
+import eventRegistrationsApi, {
+  RegisterEventDto,
+} from "@/lib/api/event-registrations";
 
 const registrationSchema = z.object({
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
@@ -68,9 +71,10 @@ export default function EventRegistrationPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [event, setEvent] = useState<Event | null>(null);
+  const [event, setEvent] = useState<BackendEvent | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -86,14 +90,44 @@ export default function EventRegistrationPage() {
   });
 
   useEffect(() => {
-    const eventId = params.id as string;
-    const foundEvent = mockEvents.find((e) => e.id === eventId);
-    if (foundEvent) {
-      setEvent(foundEvent);
-      // Check if user is already registered
-      setIsRegistered(foundEvent.registeredUsers.includes(user?.id || ""));
-    }
-  }, [params.id, user]);
+    const fetchEvent = async () => {
+      try {
+        setIsLoading(true);
+        const eventId = params.id as string;
+        if (!eventId) return;
+
+        // Fetch event details
+        const eventData = await eventsApi.getEvent(eventId);
+        setEvent(eventData);
+
+        // Check if user is already registered
+        if (user) {
+          try {
+            const myRegistrations =
+              await eventRegistrationsApi.getMyRegistrations();
+            const isAlreadyRegistered = myRegistrations.some(
+              (reg) => reg.eventId === eventId
+            );
+            setIsRegistered(isAlreadyRegistered);
+          } catch (regError) {
+            console.warn("Could not check registration status:", regError);
+            setIsRegistered(false);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch event:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải thông tin sự kiện",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [params.id, user, toast]);
 
   const onSubmit = async (data: RegistrationForm) => {
     try {
@@ -108,29 +142,26 @@ export default function EventRegistrationPage() {
 
       setIsSubmitting(true);
 
-      // Simulate registration API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Update event data
-      const updatedEvent = {
-        ...event,
-        currentParticipants: event.currentParticipants + 1,
-        registeredUsers: [...event.registeredUsers, user.id],
+      // Prepare registration data
+      const registrationData: RegisterEventDto = {
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        emergencyContact: data.emergencyContact,
+        emergencyPhone: data.emergencyPhone,
+        medicalConditions: data.medicalConditions,
+        experience: data.experience,
       };
 
-      // Update mock data
-      const eventIndex = mockEvents.findIndex((e) => e.id === event.id);
-      if (eventIndex !== -1) {
-        mockEvents[eventIndex] = updatedEvent;
-      }
+      // Call registration API
+      await eventRegistrationsApi.registerForEvent(event.id, registrationData);
 
-      setEvent(updatedEvent);
       setIsRegistered(true);
 
       toast({
         title: "Đăng ký thành công!",
         description:
-          "Bạn đã đăng ký tham gia sự kiện thành công. Chúng tôi sẽ gửi email xác nhận trong vòng 24 giờ.",
+          "Bạn đã đăng ký tham gia sự kiện thành công. Chúng tôi sẽ gửi email xác nhậnn trong vòng 24 giờ.",
       });
 
       // Redirect back to event page after 2 seconds
@@ -138,9 +169,13 @@ export default function EventRegistrationPage() {
         router.push(`/events/${event.id}`);
       }, 2000);
     } catch (error) {
+      console.error("Registration failed:", error);
       toast({
         title: "Đăng ký thất bại",
-        description: "Có lỗi xảy ra, vui lòng thử lại sau.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Có lỗi xảy ra, vui lòng thử lại sau.",
         variant: "destructive",
       });
     } finally {
@@ -148,7 +183,7 @@ export default function EventRegistrationPage() {
     }
   };
 
-  if (!event) {
+  if (isLoading || !event) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -157,7 +192,7 @@ export default function EventRegistrationPage() {
   }
 
   const eventDate = new Date(event.date);
-  const isEventFull = event.currentParticipants >= event.maxParticipants;
+  const isEventFull = (event.currentParticipants || 0) >= event.maxParticipants;
   const isEventPast = eventDate < new Date();
   const canRegister = !isEventPast && !isEventFull && !isRegistered;
 
@@ -577,7 +612,7 @@ export default function EventRegistrationPage() {
                     <CardContent className="space-y-4">
                       <div className="aspect-video rounded-lg overflow-hidden">
                         <img
-                          src={event.image || "/placeholder.svg"}
+                          src={event.imageEvent || "/placeholder.svg"}
                           alt={event.name}
                           className="w-full h-full object-cover"
                         />
@@ -621,7 +656,8 @@ export default function EventRegistrationPage() {
                             Đã đăng ký:
                           </span>
                           <span className="font-medium">
-                            {event.currentParticipants}/{event.maxParticipants}
+                            {event.currentParticipants || 0}/
+                            {event.maxParticipants}
                           </span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2">
@@ -629,7 +665,7 @@ export default function EventRegistrationPage() {
                             className="bg-gradient-to-r from-primary to-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{
                               width: `${
-                                (event.currentParticipants /
+                                ((event.currentParticipants || 0) /
                                   event.maxParticipants) *
                                 100
                               }%`,
@@ -638,7 +674,8 @@ export default function EventRegistrationPage() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           Còn{" "}
-                          {event.maxParticipants - event.currentParticipants}{" "}
+                          {event.maxParticipants -
+                            (event.currentParticipants || 0)}{" "}
                           chỗ trống
                         </p>
                       </div>

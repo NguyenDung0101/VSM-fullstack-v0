@@ -15,84 +15,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, Search } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Search,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import Link from "next/link";
 import eventsApi, {
   BackendEvent,
   Event as FrontendEvent,
+  mapBackendEventToFrontend,
 } from "@/lib/api/events";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-
-// Function to map backend event to frontend event model
-const mapBackendEventToFrontend = (
-  backendEvent: BackendEvent
-): FrontendEvent => {
-  // Map backend event category to frontend category
-  const categoryMap: Record<string, string> = {
-    MARATHON: "marathon",
-    HALF_MARATHON: "marathon",
-    FIVE_K: "fun-run",
-    TEN_K: "fun-run",
-    FUN_RUN: "fun-run",
-    TRAIL_RUN: "trail-run",
-    NIGHT_RUN: "trail-run",
-  };
-
-  // Map backend event status to frontend status
-  const statusMap: Record<string, string> = {
-    UPCOMING: "upcoming",
-    ONGOING: "ongoing",
-    COMPLETED: "completed",
-    CANCELLED: "completed",
-  };
-
-  // Extract distance from category if not provided
-  let distance = backendEvent.distance || "";
-  if (!distance) {
-    switch (backendEvent.category) {
-      case "MARATHON":
-        distance = "42.2km";
-        break;
-      case "HALF_MARATHON":
-        distance = "21.1km";
-        break;
-      case "FIVE_K":
-        distance = "5km";
-        break;
-      case "TEN_K":
-        distance = "10km";
-        break;
-      default:
-        distance = "";
-    }
-  }
-
-  return {
-    id: backendEvent.id,
-    title: backendEvent.name,
-    description: backendEvent.description,
-    date: backendEvent.date,
-    location: backendEvent.location,
-    participants: backendEvent.currentParticipants,
-    maxParticipants: backendEvent.maxParticipants,
-    image: backendEvent.imageEvent || "/placeholder.svg",
-    status: statusMap[backendEvent.status] as
-      | "upcoming"
-      | "ongoing"
-      | "completed",
-    category: categoryMap[backendEvent.category] as
-      | "marathon"
-      | "fun-run"
-      | "trail-run",
-    distance: distance,
-    registrationFee: backendEvent.registrationFee,
-    requirements: backendEvent.requirements,
-    featured: backendEvent.featured,
-    registrationDeadline: backendEvent.registrationDeadline,
-    organizer: backendEvent.organizer,
-  };
-};
 
 export default function EventsPage() {
   const [events, setEvents] = useState<FrontendEvent[]>([]);
@@ -128,12 +66,17 @@ export default function EventsPage() {
       if (status && status !== "all") filters.status = status;
       if (category && category !== "all") filters.category = category;
 
-      console.log("Fetching events with filters:", filters); // Debug: Log filters
+      console.log("Fetching events with filters:", filters);
       const response = await eventsApi.getEvents(filters);
-      console.log("API response:", response); // Debug: Log API response
+      console.log("API response:", response);
+
+      // Validate response data
+      if (!response || !response.data || !Array.isArray(response.data)) {
+        throw new Error("Dữ liệu trả về không hợp lệ");
+      }
 
       const mappedEvents = response.data.map(mapBackendEventToFrontend);
-      console.log("Mapped events:", mappedEvents); // Debug: Log mapped events
+      console.log("Mapped events:", mappedEvents);
 
       // Append new events to existing list if not on first page
       setEvents((prevEvents) =>
@@ -147,11 +90,21 @@ export default function EventsPage() {
         page, // Ensure the current page is updated
       }));
 
-      console.log("Updated events:", events); // Debug: Log final events state
-      console.log("Updated filteredEvents:", filteredEvents); // Debug: Log final filteredEvents state
+      console.log("Updated events:", events);
+      console.log("Updated filteredEvents:", filteredEvents);
     } catch (err) {
       console.error("Failed to fetch events:", err);
-      setError("Không thể tải dữ liệu sự kiện. Vui lòng thử lại sau.");
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Không thể tải dữ liệu sự kiện. Vui lòng thử lại sau.";
+      setError(errorMessage);
+
+      // Fallback to empty arrays on error
+      if (page === 1) {
+        setEvents([]);
+        setFilteredEvents([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +175,7 @@ export default function EventsPage() {
   };
 
   const handleLoadMore = () => {
-    if (pagination.page < pagination.totalPages) {
+    if (pagination.page < pagination.totalPages && !isLoading) {
       fetchEvents(
         pagination.page + 1,
         searchTerm,
@@ -230,6 +183,11 @@ export default function EventsPage() {
         categoryFilter
       );
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    fetchEvents(1, searchTerm, statusFilter, categoryFilter);
   };
 
   return (
@@ -309,32 +267,56 @@ export default function EventsPage() {
         {/* Events Grid */}
         <section className="py-16">
           <div className="container mx-auto px-4">
-            {isLoading && events.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-xl text-muted-foreground">
+            {/* Loading State */}
+            {isLoading && events.length === 0 && (
+              <div className="flex justify-center items-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2 text-xl text-muted-foreground">
                   Đang tải dữ liệu...
-                </p>
+                </span>
               </div>
-            ) : error ? (
+            )}
+
+            {/* Error State */}
+            {error && (
               <div className="text-center py-16">
-                <p className="text-xl text-red-500">{error}</p>
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-xl text-red-500 mb-4">{error}</p>
                 <Button
-                  onClick={() =>
-                    fetchEvents(1, searchTerm, statusFilter, categoryFilter)
-                  }
-                  className="mt-4"
+                  onClick={handleRetry}
                   variant="outline"
+                  disabled={isLoading}
                 >
-                  Thử lại
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang thử lại...
+                    </>
+                  ) : (
+                    "Thử lại"
+                  )}
                 </Button>
               </div>
-            ) : filteredEvents.length === 0 && !isLoading ? (
+            )}
+
+            {/* Empty State */}
+            {!error && !isLoading && filteredEvents.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-xl text-muted-foreground">
                   Không tìm thấy sự kiện nào.
                 </p>
+                {(searchTerm ||
+                  statusFilter !== "all" ||
+                  categoryFilter !== "all") && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Thử thay đổi bộ lọc để xem thêm kết quả.
+                  </p>
+                )}
               </div>
-            ) : (
+            )}
+
+            {/* Events Grid */}
+            {!error && !isLoading && filteredEvents.length > 0 && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {filteredEvents.map((event, index) => (
@@ -443,8 +425,16 @@ export default function EventsPage() {
                       onClick={handleLoadMore}
                       variant="outline"
                       size="lg"
+                      disabled={isLoading}
                     >
-                      Tải thêm sự kiện
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Đang tải...
+                        </>
+                      ) : (
+                        "Tải thêm sự kiện"
+                      )}
                     </Button>
                   </div>
                 )}

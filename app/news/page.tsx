@@ -15,167 +15,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Calendar, User, Eye, ArrowRight } from "lucide-react";
+import { Search, Calendar, User, Eye, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-
-interface Author {
-  id: string;
-  name: string;
-  avatar?: string;
-}
-
-interface News {
-  id: string;
-  title: string;
-  excerpt: string;
-  content: string;
-  cover: string;
-  author: Author;
-  date: string;
-  category: "training" | "nutrition" | "events" | "tips";
-  views: number;
-  featured: boolean;
-  likes?: number;
-  commentsCount?: number;
-  tags?: string;
-}
+import newsApi, {
+  BackendNews,
+  News as FrontendNews,
+  mapBackendNewsToFrontend,
+} from "@/lib/api/news";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 export default function NewsPage() {
-  const [posts, setPosts] = useState<News[]>([]);
-  const [filteredPosts, setFilteredPosts] = useState<News[]>([]);
+  const [news, setNews] = useState<FrontendNews[]>([]);
+  const [filteredNews, setFilteredNews] = useState<FrontendNews[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 12,
+    totalPages: 0,
+  });
+
+  const fetchNews = async (
+    page: number = 1,
+    search?: string,
+    category?: string
+  ) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const filters: any = {
+        limit: pagination.limit,
+        page: page,
+        status: "published", // Only show published articles
+      };
+
+      if (search) filters.search = search;
+      if (category && category !== "all") filters.category = category;
+
+      console.log("Fetching news with filters:", filters);
+      const response = await newsApi.getNews(filters);
+      console.log("API response:", response);
+
+      const mappedNews = response.data.map(mapBackendNewsToFrontend);
+      console.log("Mapped news:", mappedNews);
+
+      // Append new news to existing list if not on first page
+      setNews((prevNews) =>
+        page === 1 ? mappedNews : [...prevNews, ...mappedNews]
+      );
+      setFilteredNews((prevNews) =>
+        page === 1 ? mappedNews : [...prevNews, ...mappedNews]
+      );
+      setPagination((prev) => ({
+        ...response.pagination,
+        page, // Ensure the current page is updated
+      }));
+
+      console.log("Updated news:", news);
+      console.log("Updated filteredNews:", filteredNews);
+    } catch (err) {
+      console.error("Failed to fetch news:", err);
+      setError("Không thể tải dữ liệu tin tức. Vui lòng thử lại sau.");
+
+      // Fallback to empty arrays if API fails
+      setNews([]);
+      setFilteredNews([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Mock data - replace with actual API call
-    const mockPosts: News[] = [
-      {
-        id: "1",
-        title: "Hướng dẫn chuẩn bị cho marathon đầu tiên",
-        excerpt:
-          "5 điều bạn không thể bỏ qua trước khi bắt đầu hành trình 42 km đầu tiên của mình.",
-        content: "Nội dung chi tiết về cách chuẩn bị marathon...",
-        cover: "/placeholder.svg?height=400&width=600",
-        author: {
-          id: "1",
-          name: "Nguyễn Văn A",
-          avatar: "/placeholder-user.jpg",
-        },
-        date: "2024-01-10",
-        category: "training",
-        views: 1250,
-        featured: true,
-        likes: 45,
-        commentsCount: 12,
-        tags: "marathon,running,beginners",
-      },
-      {
-        id: "2",
-        title: "Bí quyết giữ phong độ khi chạy đường dài",
-        excerpt:
-          "Chuyên gia VSM chia sẻ các tip giúp bạn tránh chấn thương và duy trì hiệu suất.",
-        content: "Nội dung chi tiết về cách giữ phong độ...",
-        cover: "/placeholder.svg?height=400&width=600",
-        author: {
-          id: "2",
-          name: "Trần Thị B",
-          avatar: "/placeholder-user.jpg",
-        },
-        date: "2024-01-08",
-        category: "tips",
-        views: 980,
-        featured: false,
-        likes: 28,
-        commentsCount: 8,
-        tags: "endurance,training,tips",
-      },
-      {
-        id: "3",
-        title: "Chế độ dinh dưỡng cho vận động viên sinh viên",
-        excerpt:
-          "Ăn gì để tối ưu hiệu suất và hồi phục nhanh chóng? Hướng dẫn chi tiết từ chuyên gia.",
-        content: "Nội dung chi tiết về dinh dưỡng...",
-        cover: "/placeholder.svg?height=400&width=600",
-        author: {
-          id: "3",
-          name: "Lê Văn C",
-          avatar: "/placeholder-user.jpg",
-        },
-        date: "2024-01-05",
-        category: "nutrition",
-        views: 756,
-        featured: true,
-        likes: 34,
-        commentsCount: 15,
-        tags: "nutrition,student,recovery",
-      },
-      {
-        id: "4",
-        title: "Recap VSM Marathon Hà Nội 2023",
-        excerpt:
-          "Nhìn lại những khoảnh khắc đáng nhớ tại giải chạy lớn nhất năm của VSM.",
-        content: "Nội dung chi tiết về sự kiện...",
-        cover: "/placeholder.svg?height=400&width=600",
-        author: {
-          id: "4",
-          name: "Phạm Thị D",
-          avatar: "/placeholder-user.jpg",
-        },
-        date: "2024-01-03",
-        category: "events",
-        views: 2100,
-        featured: false,
-        likes: 78,
-        commentsCount: 24,
-        tags: "event,marathon,hanoi",
-      },
-      {
-        id: "5",
-        title: "Kỹ thuật thở đúng cách khi chạy bộ",
-        excerpt:
-          "Làm thế nào để thở hiệu quả và tăng sức bền trong quá trình chạy.",
-        content: "Nội dung chi tiết về kỹ thuật thở...",
-        cover: "/placeholder.svg?height=400&width=600",
-        author: {
-          id: "5",
-          name: "Hoàng Văn E",
-          avatar: "/placeholder-user.jpg",
-        },
-        date: "2024-01-01",
-        category: "training",
-        views: 634,
-        featured: false,
-        likes: 22,
-        commentsCount: 5,
-        tags: "breathing,technique,endurance",
-      },
-    ];
-    setPosts(mockPosts);
-    setFilteredPosts(mockPosts);
+    fetchNews();
   }, []);
 
   useEffect(() => {
-    let filtered = posts;
+    // Debounce search and filters to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      fetchNews(1, searchTerm, categoryFilter);
+    }, 500);
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (post) =>
-          post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          post.excerpt.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter((post) => post.category === categoryFilter);
-    }
-
-    // Sort by date (newest first)
-    filtered.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    setFilteredPosts(filtered);
-  }, [posts, searchTerm, categoryFilter]);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, categoryFilter]);
 
   const getCategoryText = (category: string) => {
     switch (category.toLowerCase()) {
@@ -207,8 +133,26 @@ export default function NewsPage() {
     }
   };
 
-  const featuredPosts = filteredPosts.filter((post) => post.featured);
-  const regularPosts = filteredPosts.filter((post) => !post.featured);
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString; // Return as is if not a valid date
+      }
+      return format(date, "dd/MM/yyyy", { locale: vi });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (pagination.page < pagination.totalPages) {
+      fetchNews(pagination.page + 1, searchTerm, categoryFilter);
+    }
+  };
+
+  const featuredNews = filteredNews.filter((article) => article.featured);
+  const regularNews = filteredNews.filter((article) => !article.featured);
 
   return (
     <div className="min-h-screen">
@@ -226,9 +170,10 @@ export default function NewsPage() {
               <h1 className="text-4xl md:text-6xl font-bold mb-6">
                 Tin tức <span className="gradient-text">VSM</span>
               </h1>
-              {/* <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Cập nhật kiến thức, mẹo hay và hoạt động mới nhất từ cộng đồng chạy bộ sinh viên Việt Nam.
-              </p> */}
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Cập nhật kiến thức, mẹo hay và hoạt động mới nhất từ cộng đồng
+                chạy bộ sinh viên Việt Nam.
+              </p>
             </motion.div>
           </div>
         </section>
@@ -263,13 +208,36 @@ export default function NewsPage() {
           </div>
         </section>
 
-        {/* Featured Posts */}
-        {featuredPosts.length > 0 && (
+        {/* Loading State */}
+        {isLoading && news.length === 0 && (
+          <div className="flex justify-center items-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2 text-xl text-muted-foreground">
+              Đang tải dữ liệu...
+            </span>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-16">
+            <p className="text-xl text-red-500 mb-4">{error}</p>
+            <Button
+              onClick={() => fetchNews(1, searchTerm, categoryFilter)}
+              variant="outline"
+            >
+              Thử lại
+            </Button>
+          </div>
+        )}
+
+        {/* Featured News */}
+        {!error && !isLoading && featuredNews.length > 0 && (
           <section className="py-16">
             <div className="container mx-auto px-4">
               <h2 className="text-3xl font-bold mb-8">Bài viết nổi bật</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {featuredPosts.map((post, index) => (
+                {featuredNews.map((post, index) => (
                   <motion.div
                     key={post.id}
                     initial={{ opacity: 0, y: 50 }}
@@ -313,7 +281,7 @@ export default function NewsPage() {
                             </div>
                             <div className="flex items-center">
                               <Calendar className="h-4 w-4 mr-1" />
-                              {new Date(post.date).toLocaleDateString("vi-VN")}
+                              {formatDate(post.date)}
                             </div>
                           </div>
                           <div className="flex items-center">
@@ -337,85 +305,110 @@ export default function NewsPage() {
           </section>
         )}
 
-        {/* Regular Posts */}
-        <section className="py-16 bg-muted/20">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold mb-8">Tất cả bài viết</h2>
-            {regularPosts.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-xl text-muted-foreground">
-                  Không tìm thấy bài viết nào.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {regularPosts.map((post, index) => (
-                  <motion.div
-                    key={post.id}
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <Card className="h-full hover:shadow-xl transition-all duration-300 group cursor-pointer overflow-hidden">
-                      <div className="relative overflow-hidden">
-                        <img
-                          src={post.cover || "/placeholder.svg"}
-                          alt={post.title}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <Badge
-                          className={`absolute top-4 left-4 ${getCategoryColor(
-                            post.category
-                          )} text-white`}
-                        >
-                          {getCategoryText(post.category)}
-                        </Badge>
-                      </div>
-
-                      <CardHeader>
-                        <CardTitle className="group-hover:text-primary transition-colors line-clamp-2">
-                          {post.title}
-                        </CardTitle>
-                        <p className="text-muted-foreground line-clamp-2">
-                          {post.excerpt}
-                        </p>
-                      </CardHeader>
-
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1" />
-                            {post.author.name}
+        {/* Regular News */}
+        {!error && !isLoading && (
+          <section className="py-16 bg-muted/20">
+            <div className="container mx-auto px-4">
+              <h2 className="text-3xl font-bold mb-8">Tất cả bài viết</h2>
+              {regularNews.length === 0 && news.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-xl text-muted-foreground">
+                    Không tìm thấy bài viết nào.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {regularNews.map((post, index) => (
+                      <motion.div
+                        key={post.id}
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                      >
+                        <Card className="h-full hover:shadow-xl transition-all duration-300 group cursor-pointer overflow-hidden">
+                          <div className="relative overflow-hidden">
+                            <img
+                              src={post.cover || "/placeholder.svg"}
+                              alt={post.title}
+                              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <Badge
+                              className={`absolute top-4 left-4 ${getCategoryColor(
+                                post.category
+                              )} text-white`}
+                            >
+                              {getCategoryText(post.category)}
+                            </Badge>
                           </div>
-                          <div className="flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
-                            {post.views.toLocaleString()}
-                          </div>
-                        </div>
 
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(post.date).toLocaleDateString("vi-VN")}
-                        </div>
+                          <CardHeader>
+                            <CardTitle className="group-hover:text-primary transition-colors line-clamp-2">
+                              {post.title}
+                            </CardTitle>
+                            <p className="text-muted-foreground line-clamp-2">
+                              {post.excerpt}
+                            </p>
+                          </CardHeader>
 
-                        <Button
-                          className="w-full bg-transparent"
-                          variant="outline"
-                          asChild
-                        >
-                          <Link href={`/news/${post.id}`}>
-                            Đọc tiếp
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                              <div className="flex items-center">
+                                <User className="h-4 w-4 mr-1" />
+                                {post.author.name}
+                              </div>
+                              <div className="flex items-center">
+                                <Eye className="h-4 w-4 mr-1" />
+                                {post.views.toLocaleString()}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <Calendar className="h-4 w-4 mr-1" />
+                              {formatDate(post.date)}
+                            </div>
+
+                            <Button
+                              className="w-full bg-transparent"
+                              variant="outline"
+                              asChild
+                            >
+                              <Link href={`/news/${post.id}`}>
+                                Đọc tiếp
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Load More Button */}
+                  {pagination.page < pagination.totalPages && (
+                    <div className="text-center mt-12">
+                      <Button
+                        onClick={handleLoadMore}
+                        variant="outline"
+                        size="lg"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Đang tải...
+                          </>
+                        ) : (
+                          "Tải thêm bài viết"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />

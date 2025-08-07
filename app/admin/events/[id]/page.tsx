@@ -42,9 +42,13 @@ import {
   Printer,
   Share2,
   Star,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api";
+import eventsApi, { BackendEvent } from "@/lib/api/events";
+import eventRegistrationsApi, {
+  EventRegistration,
+} from "@/lib/api/event-registrations";
 
 export interface Author {
   id: string;
@@ -52,57 +56,14 @@ export interface Author {
   email: string;
 }
 
-export interface Registration {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  emergencyContact: string;
-  emergencyPhone: string;
-  medicalConditions: string;
-  experience: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
-  status: "CONFIRMED" | "PENDING" | "WAITLIST" | "CANCELLED";
-  registeredAt: string;
-  updatedAt: string;
-  eventId: string;
-  userId: string;
-  user: Author;
-}
+// Use the interface from event-registrations API
+export type Registration = EventRegistration;
 
 export interface EventCount {
   registrations: number;
 }
 
-export interface Event {
-  id: string;
-  name: string;
-  description: string;
-  content: string;
-  date: string;
-  location: string;
-  image: string;
-  maxParticipants: number;
-  currentParticipants: number;
-  category:
-    | "MARATHON"
-    | "HALF_MARATHON"
-    | "FIVE_K"
-    | "TEN_K"
-    | "FUN_RUN"
-    | "TRAIL_RUN"
-    | "NIGHT_RUN";
-  status: "UPCOMING" | "ONGOING" | "COMPLETED" | "CANCELLED";
-  distance?: string;
-  registrationFee?: number;
-  requirements?: string;
-  published: boolean;
-  featured?: boolean;
-  registrationDeadline?: string;
-  organizer?: string;
-  createdAt: string;
-  updatedAt: string;
-  authorId: string;
-  author: Author;
+export interface Event extends BackendEvent {
   registrations: Registration[];
   _count: EventCount;
 }
@@ -121,24 +82,53 @@ export default function AdminEventDetailPage() {
     useState<Registration | null>(null);
   const [isRegistrationDialogOpen, setIsRegistrationDialogOpen] =
     useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const eventId = params.id as string;
     const fetchEventDetails = async () => {
       try {
-        const eventData = await apiClient.getEvent(eventId);
-        setEvent(eventData);
-        setRegistrations(eventData.registrations || []); // Trích xuất registrations từ event
+        setIsLoading(true);
+        setError(null);
+
+        const eventId = params.id as string;
+        if (!eventId) {
+          throw new Error("ID sự kiện không hợp lệ");
+        }
+
+        // Fetch event details
+        const eventData = await eventsApi.getEvent(eventId);
+        setEvent(eventData as Event);
+
+        // Fetch registrations
+        try {
+          const registrationsData = await eventsApi.getEventRegistrations(
+            eventId
+          );
+          setRegistrations(registrationsData || []);
+        } catch (regError) {
+          console.warn("Could not fetch registrations:", regError);
+          setRegistrations([]);
+        }
       } catch (err) {
+        console.error("Failed to fetch event details:", err);
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Không thể tải thông tin sự kiện";
+        setError(errorMessage);
         toast({
           title: "Lỗi",
-          description: "Không thể tải thông tin sự kiện: " + (err as string),
+          description: errorMessage,
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
+
     fetchEventDetails();
-  }, [params.id]);
+  }, [params.id, toast]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -239,7 +229,7 @@ export default function AdminEventDetailPage() {
     pending: registrations.filter((r) => r.status === "PENDING").length,
     waitlist: registrations.filter((r) => r.status === "WAITLIST").length,
     cancelled: registrations.filter((r) => r.status === "CANCELLED").length,
-    paid: 0, // Cần điều chỉnh nếu backend cung cấp paymentStatus
+    paid: 0, // Placeholder - would need payment status from backend
     revenue:
       (event?.registrationFee || 0) *
       registrations.filter((r) => r.status === "CONFIRMED").length,
@@ -247,38 +237,118 @@ export default function AdminEventDetailPage() {
 
   const handleExportRegistrations = () => {
     console.log("Exporting registrations...", filteredRegistrations);
-    alert(`Đang xuất ${filteredRegistrations.length} đăng ký ra file Excel...`);
+    toast({
+      title: "Xuất file",
+      description: `Đang xuất ${filteredRegistrations.length} đăng ký ra file Excel...`,
+    });
   };
 
-  const handleUpdateRegistrationStatus = (regId: string, newStatus: string) => {
-    setRegistrations((prev) =>
-      prev.map((reg) =>
-        reg.id === regId
-          ? { ...reg, status: newStatus as Registration["status"] }
-          : reg
-      )
-    );
-    // Gọi API để cập nhật trạng thái trên server nếu cần
-    apiClient
-      .updateRegistrationStatus(event?.id || "", regId, newStatus)
-      .catch((err) => {
+  const handleUpdateRegistrationStatus = async (
+    regId: string,
+    newStatus: string
+  ) => {
+    try {
+      setRegistrations((prev) =>
+        prev.map((reg) =>
+          reg.id === regId
+            ? { ...reg, status: newStatus as Registration["status"] }
+            : reg
+        )
+      );
+
+      // Call API to update status
+      if (event) {
+        await eventsApi.updateRegistrationStatus(event.id, regId, newStatus);
         toast({
-          title: "Lỗi",
-          description: "Không thể cập nhật trạng thái: " + err,
-          variant: "destructive",
+          title: "Cập nhật thành công",
+          description: "Trạng thái đăng ký đã được cập nhật.",
         });
+      }
+    } catch (err) {
+      console.error("Failed to update registration status:", err);
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật trạng thái đăng ký.",
+        variant: "destructive",
       });
+    }
   };
 
   const handleSendEmail = (registration: Registration) => {
     console.log("Sending email to:", registration.email);
-    alert(`Đang gửi email tới ${registration.email}...`);
+    toast({
+      title: "Gửi email",
+      description: `Đang gửi email tới ${registration.email}...`,
+    });
   };
 
-  if (!event) {
+  const handleRetry = () => {
+    setError(null);
+    window.location.reload();
+  };
+
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-muted/20">
+        <div className="flex">
+          <AdminSidebar
+            isCollapsed={isCollapsed}
+            setIsCollapsed={setIsCollapsed}
+          />
+          <main
+            className={`flex-1 transition-all duration-300 ${
+              isCollapsed ? "ml-16" : "ml-64"
+            }`}
+          >
+            <div className="flex justify-center items-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2 text-xl text-muted-foreground">
+                Đang tải thông tin sự kiện...
+              </span>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-muted/20">
+        <div className="flex">
+          <AdminSidebar
+            isCollapsed={isCollapsed}
+            setIsCollapsed={setIsCollapsed}
+          />
+          <main
+            className={`flex-1 transition-all duration-300 ${
+              isCollapsed ? "ml-16" : "ml-64"
+            }`}
+          >
+            <div className="p-8">
+              <div className="text-center py-16">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <h1 className="text-2xl font-bold mb-4">
+                  Không tìm thấy sự kiện
+                </h1>
+                <p className="text-muted-foreground mb-6">
+                  {error ||
+                    "Sự kiện bạn tìm kiếm không tồn tại hoặc đã bị xóa."}
+                </p>
+                <div className="space-x-4">
+                  <Button variant="outline" onClick={handleRetry}>
+                    Thử lại
+                  </Button>
+                  <Button onClick={() => router.push("/admin/events")}>
+                    Về danh sách sự kiện
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -342,7 +412,7 @@ export default function AdminEventDetailPage() {
                       <div className="w-48 h-32 rounded-lg overflow-hidden flex-shrink-0">
                         <img
                           src={
-                            event.image ||
+                            event.imageEvent ||
                             "/placeholder.svg?height=128&width=192"
                           }
                           alt={event.name}
@@ -403,7 +473,9 @@ export default function AdminEventDetailPage() {
                           </div>
                           <div className="flex items-center text-muted-foreground">
                             <DollarSign className="h-4 w-4 mr-2" />
-                            {event.registrationFee?.toLocaleString("vi-VN")}đ
+                            {event.registrationFee?.toLocaleString("vi-VN") ||
+                              0}
+                            đ
                           </div>
                         </div>
                         <div className="mt-4">
@@ -546,7 +618,7 @@ export default function AdminEventDetailPage() {
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                              placeholder="Tìm kiếm theo tên, email, SBD..."
+                              placeholder="Tìm kiếm theo tên, email..."
                               value={searchTerm}
                               onChange={(e) => setSearchTerm(e.target.value)}
                               className="pl-10 w-full sm:w-64"
@@ -593,15 +665,11 @@ export default function AdminEventDetailPage() {
                               <th className="text-left p-3 font-medium">
                                 Liên hệ
                               </th>
-                              <th className="text-left p-3 font-medium">SBD</th>
                               <th className="text-left p-3 font-medium">
                                 Trình độ
                               </th>
                               <th className="text-left p-3 font-medium">
                                 Trạng thái
-                              </th>
-                              <th className="text-left p-3 font-medium">
-                                Thanh toán
                               </th>
                               <th className="text-left p-3 font-medium">
                                 Ngày ĐK
@@ -616,9 +684,6 @@ export default function AdminEventDetailPage() {
                               const statusConfig = getStatusConfig(
                                 registration.status
                               );
-                              const paymentConfig =
-                                getPaymentStatusConfig("paid"); // Giả định tạm thời, cần điều chỉnh nếu có paymentStatus
-                              const PaymentIcon = paymentConfig.icon;
 
                               return (
                                 <motion.tr
@@ -662,15 +727,6 @@ export default function AdminEventDetailPage() {
                                     </div>
                                   </td>
                                   <td className="p-3">
-                                    <Badge
-                                      variant="outline"
-                                      className="font-mono"
-                                    >
-                                      {"---"}{" "}
-                                      {/* Chưa có SBD trong dữ liệu, cần backend cung cấp */}
-                                    </Badge>
-                                  </td>
-                                  <td className="p-3">
                                     <Badge variant="secondary">
                                       {getExperienceText(
                                         registration.experience
@@ -683,18 +739,6 @@ export default function AdminEventDetailPage() {
                                     >
                                       {statusConfig.label}
                                     </Badge>
-                                  </td>
-                                  <td className="p-3">
-                                    <div className="flex items-center gap-1">
-                                      <PaymentIcon
-                                        className={`h-4 w-4 ${paymentConfig.color}`}
-                                      />
-                                      <span
-                                        className={`text-xs ${paymentConfig.color}`}
-                                      >
-                                        {paymentConfig.label}
-                                      </span>
-                                    </div>
                                   </td>
                                   <td className="p-3 text-xs text-muted-foreground">
                                     {new Date(
@@ -760,32 +804,12 @@ export default function AdminEventDetailPage() {
                                                 </div>
                                                 <div>
                                                   <label className="text-sm font-medium text-muted-foreground">
-                                                    Số báo danh
-                                                  </label>
-                                                  <p className="mt-1">
-                                                    {selectedRegistration.bibNumber ||
-                                                      "Chưa phân"}
-                                                  </p>
-                                                </div>
-                                              </div>
-                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                  <label className="text-sm font-medium text-muted-foreground">
                                                     Liên hệ khẩn cấp
                                                   </label>
                                                   <p className="mt-1">
                                                     {
                                                       selectedRegistration.emergencyContact
                                                     }
-                                                  </p>
-                                                </div>
-                                                <div>
-                                                  <label className="text-sm font-medium text-muted-foreground">
-                                                    SĐT khẩn cấp
-                                                  </label>
-                                                  <p className="mt-1">
-                                                    {selectedRegistration.emergencyPhone ||
-                                                      "---"}
                                                   </p>
                                                 </div>
                                               </div>
@@ -795,9 +819,8 @@ export default function AdminEventDetailPage() {
                                                     Tình trạng sức khỏe
                                                   </label>
                                                   <p className="mt-1">
-                                                    {
-                                                      selectedRegistration.medicalConditions
-                                                    }
+                                                    {selectedRegistration.medicalConditions ||
+                                                      "Không có"}
                                                   </p>
                                                 </div>
                                                 <div>
@@ -810,18 +833,6 @@ export default function AdminEventDetailPage() {
                                                     )}
                                                   </p>
                                                 </div>
-                                                {selectedRegistration.notes && (
-                                                  <div>
-                                                    <label className="text-sm font-medium text-muted-foreground">
-                                                      Ghi chú
-                                                    </label>
-                                                    <p className="mt-1">
-                                                      {
-                                                        selectedRegistration.notes
-                                                      }
-                                                    </p>
-                                                  </div>
-                                                )}
                                               </div>
                                               <div className="flex flex-wrap gap-3 pt-4 border-t">
                                                 <select
@@ -866,13 +877,6 @@ export default function AdminEventDetailPage() {
                                                   <Send className="h-4 w-4 mr-2" />
                                                   Gửi email
                                                 </Button>
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                >
-                                                  <Printer className="h-4 w-4 mr-2" />
-                                                  In vé
-                                                </Button>
                                               </div>
                                             </div>
                                           )}
@@ -887,9 +891,6 @@ export default function AdminEventDetailPage() {
                                       >
                                         <Send className="h-4 w-4" />
                                       </Button>
-                                      <Button variant="ghost" size="sm">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
                                     </div>
                                   </td>
                                 </motion.tr>
@@ -897,6 +898,13 @@ export default function AdminEventDetailPage() {
                             })}
                           </tbody>
                         </table>
+                        {filteredRegistrations.length === 0 && (
+                          <div className="text-center py-8">
+                            <p className="text-muted-foreground">
+                              Không có đăng ký nào.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -910,8 +918,10 @@ export default function AdminEventDetailPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="h-64 flex items-center justify-center text-muted-foreground">
-                          <BarChart3 className="h-16 w-16 mb-4" />
-                          <p>Biểu đồ sẽ hiển thị ở đây</p>
+                          <div className="text-center">
+                            <BarChart3 className="h-16 w-16 mx-auto mb-4" />
+                            <p>Biểu đồ sẽ hiển thị ở đây</p>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

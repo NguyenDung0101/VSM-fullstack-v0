@@ -41,55 +41,59 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Eye,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api";
+import newsApi, {
+  BackendNews,
+  News as FrontendNews,
+  CreateNewsDto,
+  UpdateNewsDto,
+  mapBackendNewsToFrontend,
+} from "@/lib/api/news";
 import { useAuth } from "@/contexts/auth-context";
 
-interface Author {
-  id: string;
-  name: string;
-  avatar?: string;
-}
-
-interface Post {
-  id: string;
-  title: string;
-  excerpt: string;
-  content: string;
-  cover: string;
-  author: Author;
-  date: string;
-  category: "training" | "nutrition" | "events" | "tips";
-  views: number;
-  featured: boolean;
-  status: "published" | "draft";
-  likes: number;
-  commentsCount: number;
-  tags: string;
-}
-
+// News schema matching the new API
 const newsSchema = z.object({
   title: z.string().min(1, "Tiêu đề không được để trống"),
   excerpt: z.string().min(1, "Mô tả ngắn không được để trống"),
   content: z.string().min(1, "Nội dung không được để trống"),
   category: z.enum(["training", "nutrition", "events", "tips"]),
-  featured: z.boolean(),
+  featured: z.boolean().optional(),
   cover: z.string().optional(),
   tags: z.string().optional(),
+  status: z.enum(["published", "draft"]).optional(),
   publishedAt: z.string().optional(),
 });
 
 type NewsForm = z.infer<typeof newsSchema>;
 
 export default function AdminNewsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [news, setNews] = useState<FrontendNews[]>([]);
+  const [filteredNews, setFilteredNews] = useState<FrontendNews[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editingNews, setEditingNews] = useState<FrontendNews | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 50,
+    totalPages: 0,
+  });
 
   const form = useForm<NewsForm>({
     resolver: zodResolver(newsSchema),
@@ -101,42 +105,75 @@ export default function AdminNewsPage() {
       featured: false,
       cover: "",
       tags: "",
+      status: "published",
       publishedAt: new Date().toISOString().split("T")[0],
     },
   });
 
-  // Fetch posts from API
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const data = await apiClient.getPosts();
-        // Đảm bảo data là mảng, nếu backend trả về { data: [...] }
-        const postsArray = Array.isArray(data) ? data : data.data || [];
-        setPosts(postsArray);
-        setFilteredPosts(postsArray);
-      } catch (error) {
-        console.error("Error fetching posts:", error);
-        toast({
-          title: "Có lỗi xảy ra",
-          description: "Không thể tải danh sách bài viết.",
-          variant: "destructive",
-        });
-        // Đặt giá trị mặc định là mảng rỗng nếu lỗi
-        setPosts([]);
-        setFilteredPosts([]);
+  // Handle image change
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Fetch news from API
+  const fetchNews = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await newsApi.getAdminNews({
+        limit: pagination.limit,
+        page: 1,
+      });
+
+      console.log("API response:", response);
+
+      // Validate response data
+      if (!response || !response.data || !Array.isArray(response.data)) {
+        throw new Error("Dữ liệu trả về không hợp lệ");
       }
-    };
-    fetchPosts();
-  }, [toast]);
+
+      const mappedNews = response.data.map(mapBackendNewsToFrontend);
+      setNews(mappedNews);
+      setFilteredNews(mappedNews);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách bài viết";
+      setError(errorMessage);
+      toast({
+        title: "Có lỗi xảy ra",
+        description: errorMessage,
+        variant: "destructive",
+      });
+
+      // Set empty arrays on error
+      setNews([]);
+      setFilteredNews([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const filtered = posts.filter(
-      (post) =>
-        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.excerpt.toLowerCase().includes(searchTerm.toLowerCase())
+    fetchNews();
+  }, []);
+
+  useEffect(() => {
+    const filtered = news.filter(
+      (article) =>
+        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredPosts(filtered);
-  }, [posts, searchTerm]);
+    setFilteredNews(filtered);
+  }, [news, searchTerm]);
 
   const getCategoryText = (category: string) => {
     switch (category.toLowerCase()) {
@@ -168,128 +205,107 @@ export default function AdminNewsPage() {
     }
   };
 
-  const { user } = useAuth();
-
   const onSubmit = async (data: NewsForm) => {
     try {
-      if (editingPost) {
-        console.log("Attempting to edit post with ID:", editingPost.id);
-        const updatePayload = {
-          ...data,
-          category: data.category.toLowerCase(),
-        };
-        console.log(
-          "Full update payload:",
-          JSON.stringify(updatePayload, null, 2)
+      setIsSubmitting(true);
+
+      const newsData: CreateNewsDto | UpdateNewsDto = {
+        title: data.title,
+        excerpt: data.excerpt,
+        content: data.content,
+        category: data.category,
+        featured: data.featured || false,
+        cover: data.cover,
+        tags: data.tags,
+        status: data.status || "published",
+        publishedAt: data.publishedAt,
+      };
+
+      if (editingNews) {
+        console.log("Updating news with ID:", editingNews.id);
+        const updatedNews = await newsApi.updateNews(
+          editingNews.id,
+          newsData,
+          selectedImage || undefined
         );
-        const updatedPost = await apiClient.updatePost(
-          editingPost.id,
-          updatePayload
-        );
-        console.log(
-          "API Response from updatePost:",
-          JSON.stringify(updatedPost, null, 2)
-        );
-        setPosts(
-          posts.map((post) =>
-            post.id === editingPost.id
-              ? {
-                  ...updatedPost,
-                  author: {
-                    name: updatedPost.author?.name || "Unknown",
-                    id: updatedPost.author?.id || "",
-                    avatar: updatedPost.author?.avatar || "",
-                  },
-                }
-              : post
+
+        const mappedNews = mapBackendNewsToFrontend(updatedNews);
+        setNews(
+          news.map((article) =>
+            article.id === editingNews.id ? mappedNews : article
           )
         );
+
         toast({
           title: "Cập nhật thành công",
           description: "Bài viết đã được cập nhật.",
         });
       } else {
-        const postData = {
-          ...data,
-          cover: data.cover || "/placeholder.svg?height=200&width=300",
-          status: "published",
-          category: data.category.toLowerCase(),
-        };
-        console.log("Sending data to createPost:", postData);
-        const newPost = await apiClient.createPost(postData);
-        console.log("Raw Response from createPost:", newPost);
-        const normalizedPost = {
-          id: newPost.id,
-          title: newPost.title,
-          excerpt: newPost.excerpt,
-          content: newPost.content,
-          cover: newPost.cover || "/placeholder.svg?height=200&width=300",
-          category: newPost.category,
-          views: newPost.views || 0,
-          author: {
-            name: newPost.author?.name || "Unknown",
-            id: newPost.author?.id || "",
-            avatar: newPost.author?.avatar || "",
-          },
-          date:
-            newPost.publishedAt ||
-            newPost.date ||
-            new Date().toISOString().split("T")[0],
-          featured: newPost.featured || false,
-          status: newPost.status || "published",
-          likes: newPost.likes || 0,
-          commentsCount: newPost.commentsCount || 0,
-          tags: newPost.tags || "",
-        };
-        console.log("Normalized Post:", normalizedPost);
-        setPosts([normalizedPost, ...posts]);
+        console.log("Creating new news with data:", newsData);
+        const newNews = await newsApi.createNews(
+          newsData,
+          selectedImage || undefined
+        );
+
+        const mappedNews = mapBackendNewsToFrontend(newNews);
+        setNews([mappedNews, ...news]);
+
         toast({
           title: "Tạo thành công",
           description: "Bài viết mới đã được tạo.",
         });
       }
+
       setIsDialogOpen(false);
-      setEditingPost(null);
+      setEditingNews(null);
+      setSelectedImage(null);
+      setImagePreview("");
       form.reset();
     } catch (error: any) {
-      console.error("Error submitting post:", error);
+      console.error("Error submitting news:", error);
       toast({
         title: "Có lỗi xảy ra",
         description: error.message || "Vui lòng thử lại sau.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleEdit = (post: Post) => {
-    setEditingPost(post);
+  const handleEdit = (article: FrontendNews) => {
+    setEditingNews(article);
     form.reset({
-      title: post.title,
-      excerpt: post.excerpt,
-      content: post.content,
-      category: post.category.toLowerCase() as
-        | "training"
-        | "nutrition"
-        | "events"
-        | "tips",
-      featured: post.featured,
-      cover: post.cover || "",
-      tags: post.tags || "",
-      publishedAt: post.date || new Date().toISOString().split("T")[0],
+      title: article.title,
+      excerpt: article.excerpt,
+      content: article.content,
+      category: article.category,
+      featured: article.featured,
+      cover: article.cover || "",
+      tags: article.tags || "",
+      status: article.status || "published",
+      publishedAt: article.date
+        ? new Date(article.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
     });
+
+    // Reset image state
+    setSelectedImage(null);
+    setImagePreview("");
+
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (postId: string) => {
+  const handleDelete = async (newsId: string) => {
     try {
-      await apiClient.deletePost(postId);
-      setPosts(posts.filter((post) => post.id !== postId));
+      await newsApi.deleteNews(newsId);
+      setNews(news.filter((article) => article.id !== newsId));
       toast({
         title: "Xóa thành công",
         description: "Bài viết đã được xóa.",
       });
     } catch (error) {
-      console.error("Error deleting post:", error);
+      console.error("Error deleting news:", error);
       toast({
         title: "Có lỗi xảy ra",
         description: "Không thể xóa bài viết.",
@@ -298,8 +314,10 @@ export default function AdminNewsPage() {
     }
   };
 
-  const handleNewPost = () => {
-    setEditingPost(null);
+  const handleNewNews = () => {
+    setEditingNews(null);
+    setSelectedImage(null);
+    setImagePreview("");
     form.reset({
       title: "",
       excerpt: "",
@@ -308,9 +326,15 @@ export default function AdminNewsPage() {
       featured: false,
       cover: "",
       tags: "",
+      status: "published",
       publishedAt: new Date().toISOString().split("T")[0],
     });
     setIsDialogOpen(true);
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    fetchNews();
   };
 
   return (
@@ -341,17 +365,18 @@ export default function AdminNewsPage() {
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={handleNewPost}>
+                  <Button onClick={handleNewNews}>
                     <Plus className="mr-2 h-4 w-4" />
                     Tạo bài viết
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
-                      {editingPost ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
+                      {editingNews ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
                     </DialogTitle>
                   </DialogHeader>
+
                   <Form {...form}>
                     <form
                       onSubmit={form.handleSubmit(onSubmit)}
@@ -419,7 +444,7 @@ export default function AdminNewsPage() {
                               <FormLabel>Danh mục</FormLabel>
                               <Select
                                 onValueChange={field.onChange}
-                                defaultValue={field.value}
+                                value={field.value}
                               >
                                 <FormControl>
                                   <SelectTrigger>
@@ -446,41 +471,98 @@ export default function AdminNewsPage() {
 
                         <FormField
                           control={form.control}
-                          name="featured"
+                          name="status"
                           render={({ field }) => (
-                            <FormItem className="flex items-center space-x-2 pt-8">
-                              <FormControl>
-                                <input
-                                  type="checkbox"
-                                  checked={field.value}
-                                  onChange={field.onChange}
-                                  className="rounded"
-                                />
-                              </FormControl>
-                              <FormLabel className="!mt-0">
-                                Bài viết nổi bật
-                              </FormLabel>
+                            <FormItem>
+                              <FormLabel>Trạng thái</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Chọn trạng thái" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="published">
+                                    Đã xuất bản
+                                  </SelectItem>
+                                  <SelectItem value="draft">
+                                    Bản nháp
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
 
-                      <FormField
-                        control={form.control}
-                        name="cover"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>URL ảnh bìa</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Nhập URL ảnh bìa (ví dụ: /placeholder.svg)"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="cover"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hình ảnh</FormLabel>
+                              <div className="space-y-2">
+                                <FormControl>
+                                  <div className="flex flex-col space-y-2">
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        handleImageChange(e);
+                                        field.onChange(e.target.value);
+                                      }}
+                                    />
+                                    {imagePreview && (
+                                      <div className="mt-2">
+                                        <p className="text-sm text-muted-foreground mb-1">
+                                          Xem trước:
+                                        </p>
+                                        <img
+                                          src={imagePreview}
+                                          alt="Preview"
+                                          className="w-full max-w-[200px] h-auto rounded-md border"
+                                        />
+                                      </div>
+                                    )}
+                                    {!imagePreview && editingNews?.cover && (
+                                      <div className="mt-2">
+                                        <p className="text-sm text-muted-foreground mb-1">
+                                          Hình ảnh hiện tại:
+                                        </p>
+                                        <img
+                                          src={editingNews.cover}
+                                          alt="Current"
+                                          className="w-full max-w-[200px] h-auto rounded-md border"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="publishedAt"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Ngày xuất bản</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
                       <FormField
                         control={form.control}
@@ -501,14 +583,20 @@ export default function AdminNewsPage() {
 
                       <FormField
                         control={form.control}
-                        name="publishedAt"
+                        name="featured"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Ngày xuất bản</FormLabel>
+                          <FormItem className="flex items-center space-x-2">
                             <FormControl>
-                              <Input type="date" {...field} />
+                              <input
+                                type="checkbox"
+                                checked={field.value}
+                                onChange={field.onChange}
+                                className="rounded"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormLabel className="!mt-0">
+                              Bài viết nổi bật
+                            </FormLabel>
                           </FormItem>
                         )}
                       />
@@ -518,11 +606,21 @@ export default function AdminNewsPage() {
                           type="button"
                           variant="outline"
                           onClick={() => setIsDialogOpen(false)}
+                          disabled={isSubmitting}
                         >
                           Hủy
                         </Button>
-                        <Button type="submit">
-                          {editingPost ? "Cập nhật" : "Tạo bài viết"}
+                        <Button type="submit" disabled={isSubmitting}>
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {editingNews ? "Đang cập nhật..." : "Đang tạo..."}
+                            </>
+                          ) : editingNews ? (
+                            "Cập nhật"
+                          ) : (
+                            "Tạo bài viết"
+                          )}
                         </Button>
                       </div>
                     </form>
@@ -546,41 +644,71 @@ export default function AdminNewsPage() {
               </CardContent>
             </Card>
 
-            {/* Posts Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Danh sách bài viết ({filteredPosts.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tiêu đề</TableHead>
-                      <TableHead>Ảnh bìa</TableHead>
-                      <TableHead>Danh mục</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Lượt xem</TableHead>
-                      <TableHead>Lượt thích</TableHead>
-                      <TableHead>Số bình luận</TableHead>
-                      <TableHead>Thẻ</TableHead>
-                      <TableHead>Tác giả</TableHead>
-                      <TableHead>Ngày tạo</TableHead>
-                      <TableHead>Thao tác</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.isArray(filteredPosts) &&
-                      filteredPosts.map((post) => (
-                        <TableRow key={post.id}>
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex justify-center items-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2 text-xl text-muted-foreground">
+                  Đang tải dữ liệu...
+                </span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-16">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-xl text-red-500 mb-4">{error}</p>
+                <Button
+                  onClick={handleRetry}
+                  variant="outline"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang thử lại...
+                    </>
+                  ) : (
+                    "Thử lại"
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* News Table */}
+            {!isLoading && !error && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Danh sách bài viết ({filteredNews.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tiêu đề</TableHead>
+                        <TableHead>Ảnh bìa</TableHead>
+                        <TableHead>Danh mục</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Lượt xem</TableHead>
+                        <TableHead>Lượt thích</TableHead>
+                        <TableHead>Tác giả</TableHead>
+                        <TableHead>Ngày tạo</TableHead>
+                        <TableHead>Thao tác</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredNews.map((article) => (
+                        <TableRow key={article.id}>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{post.title}</div>
+                              <div className="font-medium">{article.title}</div>
                               <div className="text-sm text-muted-foreground line-clamp-1">
-                                {post.excerpt}
+                                {article.excerpt}
                               </div>
-                              {post.featured && (
+                              {article.featured && (
                                 <Badge className="mt-1 bg-yellow-500 text-white">
                                   Nổi bật
                                 </Badge>
@@ -590,57 +718,46 @@ export default function AdminNewsPage() {
                           <TableCell>
                             <img
                               src={
-                                post.cover ||
+                                article.cover ||
                                 "/placeholder.svg?height=50&width=50"
                               }
-                              alt={post.title}
+                              alt={article.title}
                               className="h-12 w-12 object-cover rounded"
                             />
                           </TableCell>
                           <TableCell>
                             <Badge
                               className={`${getCategoryColor(
-                                post.category
+                                article.category
                               )} text-white`}
                             >
-                              {getCategoryText(post.category)}
+                              {getCategoryText(article.category)}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge
                               variant={
-                                post.status === "published"
+                                article.status === "published"
                                   ? "default"
                                   : "secondary"
                               }
                             >
-                              {post.status === "published"
+                              {article.status === "published"
                                 ? "Đã xuất bản"
                                 : "Bản nháp"}
                             </Badge>
                           </TableCell>
-                          <TableCell>{post.views.toLocaleString()}</TableCell>
-                          <TableCell>{post.likes.toLocaleString()}</TableCell>
                           <TableCell>
-                            {post.commentsCount.toLocaleString()}
+                            {article.views.toLocaleString()}
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {typeof post.tags === "string" &&
-                                post.tags.split(",").map((tag, index) => (
-                                  <Badge
-                                    key={index}
-                                    variant="secondary"
-                                    className="mr-1"
-                                  >
-                                    {tag.trim()}
-                                  </Badge>
-                                ))}
-                            </div>
+                            {(article.likes || 0).toLocaleString()}
                           </TableCell>
-                          <TableCell>{post.author.name || "Unknown"}</TableCell>
                           <TableCell>
-                            {new Date(post.date).toLocaleDateString("vi-VN")}
+                            {article.author.name || "Unknown"}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(article.date).toLocaleDateString("vi-VN")}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
@@ -648,7 +765,7 @@ export default function AdminNewsPage() {
                                 size="icon"
                                 variant="ghost"
                                 onClick={() =>
-                                  window.open(`/news/${post.id}`, "_blank")
+                                  window.open(`/news/${article.id}`, "_blank")
                                 }
                               >
                                 <Eye className="h-4 w-4" />
@@ -656,14 +773,14 @@ export default function AdminNewsPage() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => handleEdit(post)}
+                                onClick={() => handleEdit(article)}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => handleDelete(post.id)}
+                                onClick={() => handleDelete(article.id)}
                                 className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -672,10 +789,11 @@ export default function AdminNewsPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         </main>
       </div>
