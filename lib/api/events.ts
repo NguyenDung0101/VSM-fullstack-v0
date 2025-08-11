@@ -130,7 +130,7 @@ class EventsApi extends ApiClientBase {
       if (filters.page) queryParams.append('page', filters.page.toString());
 
       const queryString = queryParams.toString();
-      const endpoint = `/events/admin${queryString ? `?${queryString}` : ''}`;
+      const endpoint = `/events/${queryString ? `?${queryString}` : ''}`;
       
       return await this.request(endpoint);
     } catch (error) {
