@@ -51,7 +51,7 @@ export function Navbar() {
     console.log("Dashboard clicked, user:", user);
 
     // Tạo URL với token và user info
-    const adminUrl = new URL("http://localhost:3000/admin");
+    const adminUrl = new URL("https://vsm-fullstack-v0.vercel.app/admin");
     const token = localStorage.getItem("vsm_token");
 
     if (token) {
