@@ -10,14 +10,9 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   icons: {
-    // Dành cho tab trình duyệt, bookmarks (ưu tiên file .png chất lượng cao hơn)
-    icon: "/favicon/favicon-16x16.png",
-
-    // Một số trình duyệt cũ hơn vẫn dùng 'shortcut icon'
-    shortcut: "/favicon/favicon.ico",
-
-    // Dành cho khi ghim ra màn hình chính của các thiết bị Apple
-    apple: "/favicon/apple-touch-icon.png",
+    icon: "/favicon/favicon.ico", // Cái này sẽ được sử dụng làm biểu tượng trang web trong tab trình duyệt
+    shortcut: "/favicon/favicon.ico", // Cái này sẽ được sử dụng làm biểu tượng trang web trong thanh địa chỉ
+    apple: "/favicon/apple-touch-icon.png", // Cái này sẽ được sử dụng làm biểu tượng trang web trên các thiết bị Apple
   },
 
   title: "VSM - Vietnam Student Marathon",

@@ -15,19 +15,23 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import Image from "next/image";
 
+// này gọi là các item trong navbar dùng kiến thức nào: object array
+// Mỗi item có href và label, href là đường dẫn, label là tên hiển tiết trên navbar
+// Sử dụng usePathname để lấy đường dẫn hiện tại, từ đó xác định item
 const navItems = [
   { href: "/", label: "Trang chủ" },
   { href: "/about", label: "Giới thiệu" },
   { href: "/events", label: "Sự kiện" },
-  { href: "/shop", label: "Cửa hàng" },
+  // { href: "/shop", label: "Cửa hàng" },
   { href: "/news", label: "Tin tức" },
   { href: "/gallery", label: "Thư viện ảnh" },
   { href: "/contact", label: "Liên hệ" },
 ];
 
 export function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // trạng thái mở/đóng của menu di động,
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -75,8 +79,8 @@ export function Navbar() {
       (user as any).isAdmin === true);
 
   return (
-    <motion.nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300`}
+    <motion.nav // đây là phần chính của Navbar, sử dụng motion.nav để có hiệu ứng chuyển động, motion là một phần của framer-motion
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300`} // fixed để Navbar luôn ở trên cùng, z-50 để đảm bảo nó nằm trên các thành phần khác
       style={{
         backgroundColor: isScrolled
           ? "var(--nav-bg-scrolled-light)"
@@ -85,24 +89,24 @@ export function Navbar() {
         backdropFilter: isScrolled ? "blur(10px)" : "none",
         boxShadow: isScrolled ? "0 2px 4px rgba(0, 0, 0, 0.1)" : "none",
       }}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      initial={{ opacity: 0, scale: 0.95 }} // Khởi tạo hiệu ứng khi Navbar xuất hiện
+      animate={{ opacity: 1, scale: 1 }} // Hiệu ứng khi Navbar đang hoạt động
+      transition={{ duration: 0.5, ease: "easeOut" }} // Thời gian và kiểu chuyển động
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">VSM</span>
-            </div>
-            <span className="font-bold text-xl gradient-text">
-              Vietnam Student Marathon
-            </span>
+            <Image
+              src="/img/logo-vsm.png"
+              alt="Logo"
+              width={125}
+              height={125}
+            />
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center xl:space-x-8">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -127,9 +131,9 @@ export function Navbar() {
           {/* Right side actions */}
           <div className="hidden md:flex items-center space-x-4">
             <ThemeToggle />
-            <Button variant="ghost" size="icon">
+            {/* <Button variant="ghost" size="icon">
               <ShoppingCart className="h-5 w-5" />
-            </Button>
+            </Button> */}
 
             {user ? (
               <DropdownMenu>
@@ -185,7 +189,7 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => setIsOpen(!isOpen)} // isOpen này nếu đang mở thì sẽ đóng, nếu đang đóng thì sẽ mở
             >
               {isOpen ? (
                 <X className="h-5 w-5" />
