@@ -16,39 +16,40 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
+import { NAV_ITEMS } from "@/constants/route";
 
 // này gọi là các item trong navbar dùng kiến thức nào: object array
 // Mỗi item có href và label, href là đường dẫn, label là tên hiển tiết trên navbar
 // Sử dụng usePathname để lấy đường dẫn hiện tại, từ đó xác định item
-const navItems = [
-  { href: "/", label: "Trang chủ" },
-  { href: "/about", label: "Giới thiệu" },
-  { href: "/events", label: "Sự kiện" },
-  // { href: "/shop", label: "Cửa hàng" },
-  { href: "/news", label: "Tin tức" },
-  { href: "/gallery", label: "Thư viện ảnh" },
-  { href: "/contact", label: "Liên hệ" },
-];
+// const navItems = [
+//   { href: "/", label: "Trang chủ" },
+//   { href: "/about", label: "Giới thiệu" },
+//   { href: "/events", label: "Sự kiện" },
+// { href: "/shop", label: "Cửa hàng" },
+//   { href: "/news", label: "Tin tức" },
+//   { href: "/gallery", label: "Thư viện ảnh" },
+//   { href: "/contact", label: "Liên hệ" },
+// ];
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false); // trạng thái mở/đóng của menu di động,
-  const [isScrolled, setIsScrolled] = useState(false);
-  const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false); // trạng thái scroll của navbar
+  const pathname = usePathname(); // lấy đường dẫn hiện tại
+  const { user, logout } = useAuth(); // lấy user và logout từ auth-context
 
   // DEBUG: Log user object
-  useEffect(() => {
-    console.log("Current user:", user);
-    console.log("User role:", user?.role);
-    console.log("Is admin:", user?.role === "ADMIN");
-  }, [user]);
+  // useEffect(() => {
+  //   console.log("Current user:", user);
+  //   console.log("User role:", user?.role);
+  //   console.log("Is admin:", user?.role === "ADMIN");
+  // }, [user]);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolled(window.scrollY > 50); // nếu scrollY lớn hơn 50 thì setIsScrolled là true, nếu không thì setIsScrolled là false
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll); // thêm event listener để khi scroll thì gọi hàm handleScroll
+    return () => window.removeEventListener("scroll", handleScroll); // xóa event listener khi component unmount
   }, []);
 
   const handleDashboardClick = () => {
@@ -85,9 +86,9 @@ export function Navbar() {
         backgroundColor: isScrolled
           ? "var(--nav-bg-scrolled-light)"
           : "var(--nav-bg-light)",
-        borderBottomColor: isScrolled ? "var(--border-color)" : "transparent",
-        backdropFilter: isScrolled ? "blur(10px)" : "none",
-        boxShadow: isScrolled ? "0 2px 4px rgba(0, 0, 0, 0.1)" : "none",
+        borderBottomColor: isScrolled ? "var(--border-color)" : "transparent", // hiệu ứng khi scroll là có màu, khi không scroll là không màu
+        backdropFilter: isScrolled ? "blur(10px)" : "none", // hiệu ứng khi scroll là có blur, khi không scroll là không blur, blur là hiệu ứng mờ
+        boxShadow: isScrolled ? "0 2px 4px rgba(0, 0, 0, 0.1)" : "none", // hiệu ứng khi scroll là có box shadow, khi không scroll là không box shadow, box shadow là hiệu ứng bóng
       }}
       initial={{ opacity: 0, scale: 0.95 }} // Khởi tạo hiệu ứng khi Navbar xuất hiện
       animate={{ opacity: 1, scale: 1 }} // Hiệu ứng khi Navbar đang hoạt động
@@ -107,17 +108,17 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center xl:space-x-8">
-            {navItems.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`relative px-3 py-2 text-sm font-medium transition-colors hover:text-primary ${
                   pathname === item.href
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                    ? "text-primary" // nếu đường dẫn hiện tại trùng với đường dẫn của item thì màu sắc là primary
+                    : "text-muted-foreground" // nếu đường dẫn hiện tại không trùng với đường dẫn của item thì màu sắc là muted-foreground
                 }`}
               >
-                {item.label}
+                {item.label} {/* item.label là tên của item */}
                 {pathname === item.href && (
                   <motion.div
                     className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
@@ -135,7 +136,7 @@ export function Navbar() {
               <ShoppingCart className="h-5 w-5" />
             </Button> */}
 
-            {user ? (
+            {user ? ( // nếu user có tài khoản thì hiện thị dropdown menu
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -189,7 +190,7 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsOpen(!isOpen)} // isOpen này nếu đang mở thì sẽ đóng, nếu đang đóng thì sẽ mở
+              onClick={() => setIsOpen(!isOpen)} // isOpen này nếu đang mở thì chức năng sẽ đóng, nếu đang đóng thì chức năng sẽ mở
             >
               {isOpen ? (
                 <X className="h-5 w-5" />
@@ -202,7 +203,9 @@ export function Navbar() {
 
         {/* Mobile Navigation */}
         <AnimatePresence>
-          {isOpen && (
+          {" "}
+          {/* AnimatePresence là một component của framer-motion, dùng để quản lý việc hiện thị và ẩn đi các thành phần */}
+          {isOpen && ( // nếu isOpen là true thì hiện thị mobile navigation
             <motion.div
               className="md:hidden"
               initial={{ opacity: 0, height: 0 }}
@@ -211,7 +214,7 @@ export function Navbar() {
               transition={{ duration: 0.3 }}
             >
               <div className="px-2 pt-2 pb-3 space-y-1 bg-background/95 backdrop-blur-md rounded-lg mt-2">
-                {navItems.map((item) => (
+                {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

@@ -26,7 +26,6 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, Info } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const loginSchema = z.object({
   email: z
@@ -44,7 +43,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login } = useAuth(); // lấy hàm login từ context
   const { toast } = useToast();
 
   const form = useForm<LoginForm>({
@@ -68,13 +67,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = (email: string) => {
-    form.reset({
-      email,
-      password: "password",
-    });
   };
 
   return (
@@ -106,59 +98,6 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent>
-            {/* Demo Accounts Alert */}
-            {/* <Alert className="mb-6 bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <div className="space-y-2">
-                  <p className="font-medium text-blue-800 dark:text-blue-200">
-                    Tài khoản demo:
-                  </p>
-                  <div className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
-                    <div className="flex justify-between items-center">
-                      <span>👑 Admin: admin@vsm.org.vn</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDemoLogin("admin@vsm.org.vn")}
-                        className="h-6 px-2 text-xs"
-                        type="button"
-                      >
-                        Dùng
-                      </Button>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>✏️ Editor: editor@vsm.org.vn</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDemoLogin("editor@vsm.org.vn")}
-                        className="h-6 px-2 text-xs"
-                        type="button"
-                      >
-                        Dùng
-                      </Button>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>👤 User: user1@vsm.org.vn</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDemoLogin("user1@vsm.org.vn")}
-                        className="h-6 px-2 text-xs"
-                        type="button"
-                      >
-                        Dùng
-                      </Button>
-                    </div>
-                    <p className="text-xs mt-2 text-blue-600 dark:text-blue-400">
-                      Tất cả mật khẩu đều là: <strong>password</strong>
-                    </p>
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert> */}
-
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}

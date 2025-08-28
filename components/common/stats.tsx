@@ -58,7 +58,7 @@ const DEFAULT_STATS: StatItem[] = [
 const Stats = ({ stats = DEFAULT_STATS, customClasses = "" }: StatsProps) => {
   return (
     <div className={customClasses}>
-      <section className="py-12 sm:py-16 bg-muted/20">
+      <section className=" bg-muted/20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {stats.map((stat, index) => {

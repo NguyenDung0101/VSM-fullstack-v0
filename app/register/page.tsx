@@ -1,19 +1,32 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from "lucide-react"
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from "lucide-react";
 
 const registerSchema = z
   .object({
@@ -21,30 +34,39 @@ const registerSchema = z
     email: z
       .string()
       .email("Email không hợp lệ")
-      .refine((email) => email.endsWith("@vsm.org.vn"), "Email phải có đuôi @vsm.org.vn"),
+      .refine(
+        (email) => email.endsWith("@vsm.org.vn"),
+        "Email phải có đuôi @vsm.org.vn"
+      ),
     password: z
       .string()
       .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
-      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Mật khẩu phải có ít nhất 1 chữ hoa, 1 chữ thường và 1 số"),
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        "Mật khẩu phải có ít nhất 1 chữ hoa, 1 chữ thường và 1 số"
+      ),
     confirmPassword: z.string(),
-    terms: z.boolean().refine((val) => val === true, "Bạn phải đồng ý với điều khoản sử dụng"),
+    terms: z
+      .boolean()
+      .refine((val) => val === true, "Bạn phải đồng ý với điều khoản sử dụng"),
     newsletter: z.boolean().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Mật khẩu xác nhận không khớp",
     path: ["confirmPassword"],
-  })
+  });
 
-type RegisterForm = z.infer<typeof registerSchema>
+type RegisterForm = z.infer<typeof registerSchema>;
+type RegisterFormInput = z.input<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const { register } = useAuth()
-  const { toast } = useToast()
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
+  const { toast } = useToast();
 
-  const form = useForm<RegisterForm>({
+  const form = useForm<RegisterFormInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       name: "",
@@ -54,26 +76,26 @@ export default function RegisterPage() {
       terms: false,
       newsletter: false,
     },
-  })
+  });
 
-  const onSubmit = async (data: RegisterForm) => {
-    setIsLoading(true)
+  const onSubmit = async (data: RegisterFormInput) => {
+    setIsLoading(true);
     try {
-      await register(data.email, data.password, data.name)
+      await register(data.email, data.password, data.name);
       toast({
         title: "Đăng ký thành công",
         description: "Chào mừng bạn đến với VSM!",
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Đăng ký thất bại",
         description: error.message || "Có lỗi xảy ra, vui lòng thử lại",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/20 via-background to-purple-500/20 p-4">
@@ -103,7 +125,10 @@ export default function RegisterPage() {
 
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
                 <FormField
                   control={form.control}
                   name="name"
@@ -113,7 +138,11 @@ export default function RegisterPage() {
                       <FormControl>
                         <div className="relative">
                           <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="Nhập họ và tên" className="pl-10" {...field} />
+                          <Input
+                            placeholder="Nhập họ và tên"
+                            className="pl-10"
+                            {...field}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -130,7 +159,11 @@ export default function RegisterPage() {
                       <FormControl>
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="your-email@vsm.org.vn" className="pl-10" {...field} />
+                          <Input
+                            placeholder="your-email@vsm.org.vn"
+                            className="pl-10"
+                            {...field}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -170,7 +203,8 @@ export default function RegisterPage() {
                       </FormControl>
                       <FormMessage />
                       <p className="text-xs text-muted-foreground">
-                        Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số
+                        Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ
+                        thường và số
                       </p>
                     </FormItem>
                   )}
@@ -196,7 +230,9 @@ export default function RegisterPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
                           >
                             {showConfirmPassword ? (
                               <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -218,16 +254,25 @@ export default function RegisterPage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="text-sm">
                             Tôi đồng ý với{" "}
-                            <Link href="/terms" className="text-primary hover:underline">
+                            <Link
+                              href="/terms"
+                              className="text-primary hover:underline"
+                            >
                               Điều khoản sử dụng
                             </Link>{" "}
                             và{" "}
-                            <Link href="/privacy" className="text-primary hover:underline">
+                            <Link
+                              href="/privacy"
+                              className="text-primary hover:underline"
+                            >
                               Chính sách bảo mật
                             </Link>
                           </FormLabel>
@@ -243,11 +288,15 @@ export default function RegisterPage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="text-sm">
-                            Tôi muốn nhận thông tin về các sự kiện và tin tức từ VSM
+                            Tôi muốn nhận thông tin về các sự kiện và tin tức từ
+                            VSM
                           </FormLabel>
                         </div>
                       </FormItem>
@@ -264,7 +313,10 @@ export default function RegisterPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Đã có tài khoản?{" "}
-                <Link href="/login" className="text-primary hover:underline font-medium">
+                <Link
+                  href="/login"
+                  className="text-primary hover:underline font-medium"
+                >
                   Đăng nhập ngay
                 </Link>
               </p>
@@ -273,5 +325,5 @@ export default function RegisterPage() {
         </Card>
       </motion.div>
     </div>
-  )
+  );
 }

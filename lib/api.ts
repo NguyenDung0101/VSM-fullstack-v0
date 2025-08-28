@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+import { API_BASE_URL } from "./api/config";
 
 class ApiClient {
   private baseURL: string;
@@ -124,10 +124,10 @@ if (this.token) {
     });
   }
 
-  async getEventRegistrations(eventId: string): Promise<Registration[]> {
-    const event = await this.getEvent(eventId); // Lấy toàn bộ event
-    return event.registrations; // Trả về mảng registrations từ event
-  }
+  // async getEventRegistrations(eventId: string): Promise<Registration[]> {
+  //   const event = await this.getEvent(eventId); // Lấy toàn bộ event
+  //   return event.registrations; // Trả về mảng registrations từ event
+  // }
 
   async updateRegistrationStatus(
     eventId: string,

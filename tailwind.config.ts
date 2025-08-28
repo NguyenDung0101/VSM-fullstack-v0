@@ -3,23 +3,25 @@ import type { Config } from "tailwindcss";
 // all in fixtures is set to tailwind v3 as interims solutions
 
 const config: Config = {
-    darkMode: ["class"],
-    content: [
+    darkMode: ["class"], // dựa vào class để xác định dark mode
+    content: [  // danh sách các thư mục/file mà Tailwind sẽ quét để tìm class CSS bạn dùng
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}"
   ],
   theme: {
-  	extend: {
+  	extend: { // mở rộng thêm các màu sắc, border radius, animation, ...
+			// Tailwind có sẵn một bộ màu, kích thước, bo góc, animation mặc định (ví dụ: bg-blue-500, rounded-lg, text-gray-800…).
+			// bạn thêm màu primary mới vào, mà không làm mất các màu gốc (blue, red, green vẫn còn).
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
-  			card: {
+  			card: { // màu sắc của card
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
-  			popover: {
+  			popover: { // màu sắc của popover
   				DEFAULT: 'hsl(var(--popover))',
   				foreground: 'hsl(var(--popover-foreground))'
   			},
@@ -64,7 +66,7 @@ const config: Config = {
   				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
-  		borderRadius: {
+  		borderRadius: {  // border radius của các thành phần
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'

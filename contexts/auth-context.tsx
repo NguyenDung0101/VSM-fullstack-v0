@@ -9,8 +9,17 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api";
+import { apiAuthClient } from "@/lib/routes/apiAuth";
 import { AuthUser } from "@/lib/types";
+
+// auth-context.tsx:
+// - Tạo interface cho AuthContext Type chỉ định các phương thức và kiểu dữ liệu của AuthContext
+// - hàm kiểm tra xem user có đăng nhập không
+// - hàm đăng nhập
+// - hàm đăng ký
+// - hàm đăng xuất
+// - hàm cập nhật thông tin cá nhân
+// - hàm kiểm tra xem user có phải là admin không
 
 // Temporary admin emails list - thay thế bằng database sau
 const ADMIN_EMAILS = [
@@ -19,6 +28,8 @@ const ADMIN_EMAILS = [
   // Thêm email admin của bạn vào đây
 ];
 
+// interface cho AuthContext Type chỉ định các phương thức và kiểu dữ liệu của AuthContext
+// Không dùng cho type bên ngoài, chỉ dùng cho type bên trong
 interface AuthContextType {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
@@ -64,18 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const isAdmin = checkIsAdmin(user);
+  const isAdmin = checkIsAdmin(user); // kiểm tra xem user có phải là admin không
 
   useEffect(() => {
     checkAuth();
   }, []);
 
+  // hàm kiểm tra xem user có đăng nhập không
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem("vsm_token");
       if (token) {
-        apiClient.setToken(token);
-        const userData = await apiClient.getProfile();
+        apiAuthClient.setToken(token);
+        const userData = await apiAuthClient.getProfile();
 
         // Log để debug
         console.log("Fetched user data:", userData);
@@ -88,12 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         console.log("User set with role:", userData.role);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auth check failed:", error);
       // Chỉ xóa token nếu lỗi 401
-      if (error.message.includes("401")) {
+      if (error instanceof Error && error.message.includes("401")) {
         localStorage.removeItem("vsm_token");
-        apiClient.removeToken();
+        apiAuthClient.removeToken();
       }
     } finally {
       setLoading(false);
@@ -102,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiClient.login(email, password);
+      const response = await apiAuthClient.login(email, password);
 
       console.log("Login response:", response);
       if (!response.access_token) {
@@ -116,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Save token and user data
       localStorage.setItem("vsm_token", response.access_token);
-      apiClient.setToken(response.access_token);
+      apiAuthClient.setToken(response.access_token);
       setUser(response.user);
 
       console.log("User logged in with role:", response.user.role);
@@ -137,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      const response = await apiClient.register(name, email, password);
+      const response = await apiAuthClient.register(name, email, password);
 
       if (!response.access_token) {
         throw new Error(
@@ -152,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Save token and user data
       localStorage.setItem("vsm_token", response.access_token);
-      apiClient.setToken(response.access_token);
+      apiAuthClient.setToken(response.access_token);
       setUser(response.user);
 
       toast({
@@ -188,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("vsm_token");
-    apiClient.removeToken();
+    apiAuthClient.removeToken();
     setUser(null);
     router.push("/");
     toast({
