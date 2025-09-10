@@ -8,26 +8,6 @@ import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import {
   Calendar,
   MapPin,
   Clock,
@@ -45,23 +25,9 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import eventsApi, {
-  BackendEvent,
-  mapBackendEventToFrontend,
-} from "@/lib/api/events";
+import eventsApi, { BackendEvent } from "@/lib/api/events";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-
-const registrationSchema = z.object({
-  fullName: z.string().min(1, "Họ tên không được để trống"),
-  email: z.string().email("Email không hợp lệ"),
-  phone: z.string().min(10, "Số điện thoại không hợp lệ"),
-  emergencyContact: z.string().min(10, "Số điện thoại khẩn cấp không hợp lệ"),
-  medicalConditions: z.string().optional(),
-  experience: z.enum(["beginner", "intermediate", "advanced"]),
-});
-
-type RegistrationForm = z.infer<typeof registrationSchema>;
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -69,22 +35,8 @@ export default function EventDetailPage() {
   const { toast } = useToast();
   const [event, setEvent] = useState<BackendEvent | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const form = useForm<RegistrationForm>({
-    resolver: zodResolver(registrationSchema),
-    defaultValues: {
-      fullName: user?.name || "",
-      email: user?.email || "",
-      phone: "",
-      emergencyContact: "",
-      medicalConditions: "",
-      experience: "beginner",
-    },
-  });
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -122,59 +74,6 @@ export default function EventDetailPage() {
 
     fetchEvent();
   }, [params.id, user, toast]);
-
-  const onSubmit = async (data: RegistrationForm) => {
-    try {
-      if (!user || !event) {
-        toast({
-          title: "Vui lòng đăng nhập",
-          description: "Bạn cần đăng nhập để đăng ký tham gia sự kiện.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      const registrationData = {
-        fullName: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        emergencyContact: data.emergencyContact,
-        medicalConditions: data.medicalConditions || "",
-        experience: data.experience.toUpperCase(),
-      };
-
-      // Call registration API
-      await eventsApi.registerForEvent(event.id, registrationData);
-
-      // Update local state
-      setEvent({
-        ...event,
-        currentParticipants: event.currentParticipants + 1,
-      });
-      setIsRegistered(true);
-      setIsRegistrationOpen(false);
-
-      toast({
-        title: "Đăng ký thành công!",
-        description:
-          "Bạn đã đăng ký tham gia sự kiện thành công. Chúng t��i sẽ liên hệ với bạn sớm.",
-      });
-    } catch (error) {
-      console.error("Registration failed:", error);
-      toast({
-        title: "Đăng ký thất bại",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Có lỗi xảy ra, vui lòng thử lại sau.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleShare = () => {
     if (navigator.share) {
@@ -555,134 +454,12 @@ export default function EventDetailPage() {
                       </div>
 
                       {canRegister ? (
-                        <Dialog
-                          open={isRegistrationOpen}
-                          onOpenChange={setIsRegistrationOpen}
-                        >
-                          <DialogTrigger asChild>
-                            <Button className="w-full">
-                              <UserPlus className="mr-2 h-4 w-4" />
-                              Đăng ký ngay
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>
-                                Đăng ký tham gia sự kiện
-                              </DialogTitle>
-                            </DialogHeader>
-                            <Form {...form}>
-                              <form
-                                onSubmit={form.handleSubmit(onSubmit)}
-                                className="space-y-4"
-                              >
-                                <FormField
-                                  control={form.control}
-                                  name="fullName"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Họ tên</FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          placeholder="Nhập họ tên đầy đủ"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <FormField
-                                  control={form.control}
-                                  name="email"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Email</FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          placeholder="Nhập email"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <FormField
-                                  control={form.control}
-                                  name="phone"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Số điện thoại</FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          placeholder="Nhập số điện thoại"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <FormField
-                                  control={form.control}
-                                  name="emergencyContact"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>
-                                        Số điện thoại khẩn cấp
-                                      </FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          placeholder="Nhập SĐT khẩn cấp"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <FormField
-                                  control={form.control}
-                                  name="medicalConditions"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>
-                                        Tình trạng sức khỏe (tùy chọn)
-                                      </FormLabel>
-                                      <FormControl>
-                                        <Textarea
-                                          placeholder="Mô tả tình trạng sức khỏe đặc biệt (nếu có)"
-                                          {...field}
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                <div className="flex justify-end space-x-4">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsRegistrationOpen(false)}
-                                  >
-                                    Hủy
-                                  </Button>
-                                  <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Đang đăng ký...
-                                      </>
-                                    ) : (
-                                      "Đăng ký"
-                                    )}
-                                  </Button>
-                                </div>
-                              </form>
-                            </Form>
-                          </DialogContent>
-                        </Dialog>
+                        <Button className="w-full" asChild>
+                          <Link href={`/events/${event.id}/register`}>
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Đăng ký ngay
+                          </Link>
+                        </Button>
                       ) : (
                         <Button className="w-full" disabled>
                           {isRegistered

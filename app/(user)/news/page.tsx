@@ -24,6 +24,7 @@ import newsApi, {
 } from "@/lib/api/news";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { NewsCard } from "@/components/NewsCard";
 
 export default function NewsPage() {
   const [news, setNews] = useState<FrontendNews[]>([]);
@@ -151,8 +152,8 @@ export default function NewsPage() {
     }
   };
 
-  const featuredNews = filteredNews.filter((article) => article.featured);
-  const regularNews = filteredNews.filter((article) => !article.featured);
+  const featuredNews = filteredNews.filter((article) => article.featured); // Lấy ra các bài viết nổi bật
+  const regularNews = filteredNews.filter((article) => !article.featured); // Lấy ra các bài viết không nổi bật
 
   return (
     <div className="min-h-screen">
@@ -244,60 +245,19 @@ export default function NewsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                   >
-                    <Card className="h-full hover:shadow-xl transition-all duration-300 group cursor-pointer overflow-hidden">
-                      <div className="relative overflow-hidden">
-                        <img
-                          src={post.cover || "/placeholder.svg"}
-                          alt={post.title}
-                          className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <Badge
-                          className={`absolute top-4 left-4 ${getCategoryColor(
-                            post.category
-                          )} text-white`}
-                        >
-                          {getCategoryText(post.category)}
-                        </Badge>
-                        <Badge className="absolute top-4 right-4 bg-yellow-500 text-white">
-                          Nổi bật
-                        </Badge>
-                      </div>
-
-                      <CardHeader>
-                        <CardTitle className="group-hover:text-primary transition-colors text-xl">
-                          {post.title}
-                        </CardTitle>
-                        <p className="text-muted-foreground line-clamp-3">
-                          {post.excerpt}
-                        </p>
-                      </CardHeader>
-
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 mr-1" />
-                              {post.author.name}
-                            </div>
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
-                              {formatDate(post.date)}
-                            </div>
-                          </div>
-                          <div className="flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
-                            {post.views.toLocaleString()}
-                          </div>
-                        </div>
-
-                        <Button className="w-full" asChild>
-                          <Link href={`/news/${post.id}`}>
-                            Đọc tiếp
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
+                    <NewsCard
+                      id={post.id}
+                      title={post.title}
+                      excerpt={post.excerpt}
+                      cover={post.cover}
+                      category={getCategoryText(post.category)}
+                      categoryColor={getCategoryColor(post.category)}
+                      author={post.author.name}
+                      date={formatDate(post.date)}
+                      views={post.views}
+                      featured
+                      variant="featured"
+                    />
                   </motion.div>
                 ))}
               </div>

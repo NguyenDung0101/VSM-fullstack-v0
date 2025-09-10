@@ -148,7 +148,6 @@ export default function EventRegistrationPage() {
         email: data.email,
         phone: data.phone,
         emergencyContact: data.emergencyContact,
-        emergencyPhone: data.emergencyPhone,
         medicalConditions: data.medicalConditions,
         experience: data.experience,
       };
