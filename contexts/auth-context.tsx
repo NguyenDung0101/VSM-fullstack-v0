@@ -34,6 +34,8 @@ interface AuthContextType {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  googleLogin: (accessToken: string) => Promise<void>;
+  handleGoogleCallbackResponse: (response: any) => Promise<void>;
   logout: () => void;
   loading: boolean;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
@@ -90,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await apiAuthClient.getProfile();
 
         // Log để debug
-        console.log("Fetched user data:", userData);
+        // console.log("Fetched user data:", userData);
 
         // Nếu backend không trả về role, set based on email
         if (!userData.role && ADMIN_EMAILS.includes(userData.email)) {
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setUser(userData);
-        console.log("User set with role:", userData.role);
+        // console.log("User set with role:", userData.role);
       }
     } catch (error: any) {
       console.error("Auth check failed:", error);
@@ -116,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiAuthClient.login(email, password);
 
-      console.log("Login response:", response);
+      // console.log("Login response:", response);
       if (!response.access_token) {
         throw new Error("Access token not found in response from /auth/login");
       }
@@ -131,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiAuthClient.setToken(response.access_token);
       setUser(response.user);
 
-      console.log("User logged in with role:", response.user.role);
+      // console.log("User logged in with role:", response.user.role);
 
       toast({
         title: "Đăng nhập thành công",
@@ -198,6 +200,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const googleLogin = async (accessToken: string) => {
+    try {
+      const response = await apiAuthClient.googleLogin(accessToken);
+
+      // console.log("Google login response:", response);
+      if (!response.accessToken) {
+        throw new Error(
+          "Access token not found in response from /auth/google-login"
+        );
+      }
+
+      // Nếu backend không trả về role, set based on email
+      if (!response.user.role && ADMIN_EMAILS.includes(response.user.email)) {
+        response.user.role = "admin";
+      }
+
+      // Save token and user data
+      localStorage.setItem("vsm_token", response.accessToken);
+      apiAuthClient.setToken(response.accessToken);
+      setUser(response.user);
+
+      // console.log("User logged in with role:", response.user.role);
+
+      toast({
+        title: "Đăng nhập thành công",
+        description: `Chào mừng ${response.user.name}!`,
+      });
+
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Đăng nhập Google thất bại";
+      throw new Error(message);
+    }
+  };
+
+  const handleGoogleCallbackResponse = async (response: any) => {
+    try {
+      // console.log("Handling Google callback response:", response);
+
+      if (!response.accessToken) {
+        throw new Error("Access token not found in response");
+      }
+
+      // Nếu backend không trả về role, set based on email
+      if (!response.user.role && ADMIN_EMAILS.includes(response.user.email)) {
+        response.user.role = "admin";
+      }
+
+      // Save token and user data
+      localStorage.setItem("vsm_token", response.accessToken);
+      apiAuthClient.setToken(response.accessToken);
+      setUser(response.user);
+
+      // console.log("User logged in with role:", response.user.role);
+
+      toast({
+        title: "Đăng nhập thành công",
+        description: `Chào mừng ${response.user.name}!`,
+      });
+
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Xử lý Google callback thất bại";
+      throw new Error(message);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem("vsm_token");
     apiAuthClient.removeToken();
@@ -211,7 +286,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, register, logout, loading, updateProfile, isAdmin }}
+      value={{
+        user,
+        login,
+        register,
+        googleLogin,
+        handleGoogleCallbackResponse,
+        logout,
+        loading,
+        updateProfile,
+        isAdmin,
+      }}
     >
       {children}
     </AuthContext.Provider>

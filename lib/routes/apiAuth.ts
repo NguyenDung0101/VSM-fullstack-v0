@@ -30,6 +30,14 @@ class ApiAuthClient extends ApiClientBase {
     return this.request("/auth/profile");
   }
 
+  // Google Login endpoints
+  async googleLogin(accessToken: string) {
+    return this.request("/auth/google-login", {
+      method: "POST",
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+  }
+
   
 }
 

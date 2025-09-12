@@ -13,6 +13,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Kiểm tra xem user có phải là admin không
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
       router.push("/login");

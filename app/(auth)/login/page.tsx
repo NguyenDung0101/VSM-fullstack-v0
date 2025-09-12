@@ -26,6 +26,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, Info } from "lucide-react";
+import { signInWithGoogle } from "@/lib/supabase/auth";
 
 const loginSchema = z.object({
   email: z
@@ -43,6 +44,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const { login } = useAuth(); // lấy hàm login từ context
   const { toast } = useToast();
 
@@ -66,6 +68,14 @@ export default function LoginPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError("Đăng nhập Google thất bại.");
     }
   };
 
@@ -197,9 +207,10 @@ export default function LoginPage() {
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <Button
+                  onClick={handleGoogleLogin}
                   variant="outline"
                   className="w-full bg-transparent"
-                  disabled
+                  //disabled // disabled là để ngăn người dùng click vào nút này
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                     <path

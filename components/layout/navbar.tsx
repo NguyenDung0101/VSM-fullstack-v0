@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import { NAV_ITEMS } from "@/constants/route";
+import { useRouter } from "next/navigation";
 
 // này gọi là các item trong navbar dùng kiến thức nào: object array
 // Mỗi item có href và label, href là đường dẫn, label là tên hiển tiết trên navbar
@@ -36,6 +37,7 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false); // trạng thái scroll của navbar
   const pathname = usePathname(); // lấy đường dẫn hiện tại
   const { user, logout } = useAuth(); // lấy user và logout từ auth-context
+  const router = useRouter();
 
   // DEBUG: Log user object
   // useEffect(() => {
@@ -55,20 +57,8 @@ export function Navbar() {
   const handleDashboardClick = () => {
     console.log("Dashboard clicked, user:", user);
 
-    // Tạo URL với token và user info
-    const adminUrl = new URL("https://vsm-fullstack-v0.vercel.app/admin");
-    const token = localStorage.getItem("vsm_token");
-
-    if (token) {
-      adminUrl.searchParams.set("token", token);
-    }
-
-    if (user?.id) {
-      adminUrl.searchParams.set("userId", user.id.toString());
-    }
-
-    console.log("Opening admin URL:", adminUrl.toString());
-    window.open(adminUrl.toString(), "_blank");
+    // Chuyển hướng trong cùng tab thay vì mở tab mới
+    router.push("/admin");
   };
 
   // Kiểm tra user có phải admin không (flexible checking)
@@ -159,9 +149,11 @@ export function Navbar() {
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleDashboardClick}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Dashboard
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Dashboard
+                        </Link>
                       </DropdownMenuItem>
                     </>
                   )}
@@ -241,16 +233,14 @@ export function Navbar() {
 
                       {/* Dashboard cho mobile */}
                       {isAdmin && (
-                        <button
-                          onClick={() => {
-                            handleDashboardClick();
-                            setIsOpen(false);
-                          }}
+                        <Link
+                          href="/admin"
                           className="flex items-center w-full text-left px-3 py-2 text-base font-medium text-muted-foreground hover:text-primary"
+                          onClick={() => setIsOpen(false)}
                         >
                           <Settings className="mr-2 h-4 w-4" />
                           Dashboard
-                        </button>
+                        </Link>
                       )}
 
                       <button

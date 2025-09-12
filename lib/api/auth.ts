@@ -29,6 +29,8 @@ class AuthApiClient extends ApiClientBase {
   async getProfile() {
     return this.request("/auth/profile");
   }
+
+  
 }
 
 export const authApi = new AuthApiClient(API_BASE_URL);
