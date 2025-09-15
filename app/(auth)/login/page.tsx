@@ -33,8 +33,8 @@ const loginSchema = z.object({
     .string()
     .email("Email không hợp lệ")
     .refine(
-      (email) => email.endsWith("@vsm.org.vn"),
-      "Email phải có đuôi @vsm.org.vn"
+      (email) => email.endsWith("@gmail.com"),
+      "Email phải có đuôi @gmail.com"
     ),
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
 });

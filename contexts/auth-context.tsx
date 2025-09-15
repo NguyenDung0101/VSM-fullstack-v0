@@ -34,12 +34,26 @@ interface AuthContextType {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  registerWithSupabase: (
+    email: string,
+    password: string,
+    name: string,
+    newsletter?: boolean
+  ) => Promise<void>;
+  verifyOTP: (email: string, otp: string) => Promise<void>;
+  resendOTP: (email: string) => Promise<void>;
   googleLogin: (accessToken: string) => Promise<void>;
   handleGoogleCallbackResponse: (response: any) => Promise<void>;
+  handleEmailVerificationResponse: (response: any) => Promise<void>;
   logout: () => void;
   loading: boolean;
   updateProfile: (data: Partial<AuthUser>) => Promise<void>;
   isAdmin: boolean;
+  linkRegisterSelf: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -182,6 +196,160 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Hàm đăng ký với Supabase (gửi OTP)
+  const registerWithSupabase = async (
+    email: string,
+    password: string,
+    name: string,
+    newsletter: boolean = false
+  ) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/register-supabase`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            name,
+            newsletter,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Đăng ký thất bại");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Đăng ký thất bại";
+      throw new Error(message);
+    }
+  };
+
+  // Hàm verify OTP
+  const verifyOTP = async (email: string, otp: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/verify-otp`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            otp,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Xác thực OTP thất bại");
+      }
+
+      const data = await response.json();
+
+      if (!data.accessToken) {
+        throw new Error("Access token not found in response");
+      }
+
+      // Nếu backend không trả về role, set based on email
+      if (!data.user.role && ADMIN_EMAILS.includes(data.user.email)) {
+        data.user.role = "admin";
+      }
+
+      // Save token and user data
+      localStorage.setItem("vsm_token", data.accessToken);
+      apiAuthClient.setToken(data.accessToken);
+      setUser(data.user);
+
+      // Xóa email khỏi localStorage
+      localStorage.removeItem("pending_verification_email");
+
+      toast({
+        title: "Xác thực thành công",
+        description: `Chào mừng ${data.user.name}!`,
+      });
+
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Xác thực OTP thất bại";
+      throw new Error(message);
+    }
+  };
+
+  // Hàm gửi lại OTP
+  const resendOTP = async (email: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/send-otp`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Gửi lại OTP thất bại");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gửi lại OTP thất bại";
+      throw new Error(message);
+    }
+  };
+
+  // Hàm xử lý response sau khi verify email
+  const handleEmailVerificationResponse = async (response: any) => {
+    try {
+      // console.log("Handling email verification response:", response);
+
+      if (!response.accessToken) {
+        throw new Error("Access token not found in response");
+      }
+
+      // Nếu backend không trả về role, set based on email
+      if (!response.user.role && ADMIN_EMAILS.includes(response.user.email)) {
+        response.user.role = "admin";
+      }
+
+      // Save token and user data
+      localStorage.setItem("vsm_token", response.accessToken);
+      apiAuthClient.setToken(response.accessToken);
+      setUser(response.user);
+
+      // console.log("User logged in with role:", response.user.role);
+
+      toast({
+        title: "Xác thực email thành công",
+        description: `Chào mừng ${response.user.name}!`,
+      });
+
+      // Redirect to home
+      router.push("/");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Xử lý xác thực email thất bại";
+      throw new Error(message);
+    }
+  };
+
   const updateProfile = async (data: Partial<AuthUser>) => {
     try {
       if (!user) throw new Error("Chưa đăng nhập");
@@ -275,6 +443,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("vsm_token");
+    localStorage.removeItem("pending_verification_email");
     apiAuthClient.removeToken();
     setUser(null);
     router.push("/");
@@ -284,18 +453,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // Link-based self registration: creates user and sends email verification link
+  const linkRegisterSelf = async (
+    name: string,
+    email: string,
+    password: string
+  ) => {
+    try {
+      const resp = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/register/self`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        }
+      );
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.message || "Đăng ký thất bại");
+      }
+      toast({
+        title: "Đăng ký thành công",
+        description: "Vui lòng kiểm tra email để xác minh tài khoản.",
+      });
+      // Lưu email để dùng khi quay lại từ link xác minh (nếu cần)
+      localStorage.setItem("pending_verification_email", email);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Đăng ký thất bại";
+      throw new Error(message);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
         register,
+        registerWithSupabase,
+        verifyOTP,
+        resendOTP,
         googleLogin,
         handleGoogleCallbackResponse,
+        handleEmailVerificationResponse,
         logout,
         loading,
         updateProfile,
         isAdmin,
+        linkRegisterSelf,
       }}
     >
       {children}

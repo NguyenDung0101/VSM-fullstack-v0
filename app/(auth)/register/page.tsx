@@ -24,20 +24,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
+// Dùng Zod để validate form
 const registerSchema = z
   .object({
     name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
-    email: z
-      .string()
-      .email("Email không hợp lệ")
-      .refine(
-        (email) => email.endsWith("@vsm.org.vn"),
-        "Email phải có đuôi @vsm.org.vn"
-      ),
+    email: z.string().email("Email không hợp lệ"),
     password: z
       .string()
       .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
@@ -60,12 +55,13 @@ type RegisterForm = z.infer<typeof registerSchema>;
 type RegisterFormInput = z.input<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Dùng để show/hide mật khẩu
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Dùng để show/hide mật khẩu xác nhận
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  const { linkRegisterSelf } = useAuth(); // Dùng để đăng ký theo link xác minh
   const { toast } = useToast();
 
+  // Dùng useForm để handle form
   const form = useForm<RegisterFormInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -81,11 +77,19 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormInput) => {
     setIsLoading(true);
     try {
-      await register(data.email, data.password, data.name);
+      // Đăng ký self và gửi link xác minh email
+      await linkRegisterSelf(data.name, data.email, data.password);
+
       toast({
         title: "Đăng ký thành công",
-        description: "Chào mừng bạn đến với VSM!",
+        description: "Vui lòng kiểm tra email và nhấn vào link để xác minh.",
       });
+
+      // Lưu email vào localStorage để sử dụng ở trang verify nếu cần
+      localStorage.setItem("pending_verification_email", data.email);
+
+      // Điều hướng đến trang hướng dẫn xác minh (nếu có), tạm thời ở lại trang
+      window.location.href = "/login";
     } catch (error: any) {
       toast({
         title: "Đăng ký thất bại",
@@ -160,7 +164,7 @@ export default function RegisterPage() {
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="your-email@vsm.org.vn"
+                            placeholder="your-email@gmail.com"
                             className="pl-10"
                             {...field}
                           />
