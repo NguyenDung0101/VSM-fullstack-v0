@@ -139,11 +139,11 @@ export function Navbar() {
                   </DropdownMenuItem>
 
                   {/* Debug info */}
-                  <DropdownMenuItem disabled>
+                  {/* <DropdownMenuItem disabled>
                     <span className="text-xs text-muted-foreground">
                       Role: {user.role || "undefined"}
                     </span>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
 
                   {/* Hiển thị Dashboard - sử dụng isAdmin check linh hoạt */}
                   {isAdmin && (
