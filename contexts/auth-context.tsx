@@ -272,12 +272,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("pending_verification_email");
 
       toast({
-        title: "Xác thực thành công",
-        description: `Chào mừng ${data.user.name}!`,
+        title: "Đăng ký thành công",
+        description: "Email của bạn đã được xác thực. Vui lòng đăng nhập.",
       });
 
-      // Redirect to home
-      router.push("/");
+      // Redirect to login after successful verification
+      router.push("/login");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Xác thực OTP thất bại";
@@ -335,12 +335,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // console.log("User logged in with role:", response.user.role);
 
       toast({
-        title: "Xác thực email thành công",
-        description: `Chào mừng ${response.user.name}!`,
+        title: "Đăng ký thành công",
+        description: "Email của bạn đã được xác thực. Vui lòng đăng nhập.",
       });
 
-      // Redirect to home
-      router.push("/");
+      // Redirect to login after successful verification
+      router.push("/login");
     } catch (error) {
       const message =
         error instanceof Error

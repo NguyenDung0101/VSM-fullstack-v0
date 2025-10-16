@@ -19,32 +19,12 @@ import Image from "next/image";
 import { NAV_ITEMS } from "@/constants/route";
 import { useRouter } from "next/navigation";
 
-// này gọi là các item trong navbar dùng kiến thức nào: object array
-// Mỗi item có href và label, href là đường dẫn, label là tên hiển tiết trên navbar
-// Sử dụng usePathname để lấy đường dẫn hiện tại, từ đó xác định item
-// const navItems = [
-//   { href: "/", label: "Trang chủ" },
-//   { href: "/about", label: "Giới thiệu" },
-//   { href: "/events", label: "Sự kiện" },
-// { href: "/shop", label: "Cửa hàng" },
-//   { href: "/news", label: "Tin tức" },
-//   { href: "/gallery", label: "Thư viện ảnh" },
-//   { href: "/contact", label: "Liên hệ" },
-// ];
-
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false); // trạng thái mở/đóng của menu di động,
   const [isScrolled, setIsScrolled] = useState(false); // trạng thái scroll của navbar
   const pathname = usePathname(); // lấy đường dẫn hiện tại
   const { user, logout } = useAuth(); // lấy user và logout từ auth-context
   const router = useRouter();
-
-  // DEBUG: Log user object
-  // useEffect(() => {
-  //   console.log("Current user:", user);
-  //   console.log("User role:", user?.role);
-  //   console.log("Is admin:", user?.role === "ADMIN");
-  // }, [user]);
 
   useEffect(() => {
     const handleScroll = () => {

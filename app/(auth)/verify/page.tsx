@@ -150,11 +150,16 @@ export default function VerifyPage() {
             </div>
             <CardTitle className="text-2xl font-bold">Xác thực Email</CardTitle>
             <CardDescription>
-              Nhập mã OTP đã được gửi đến {email}
+              Chúng tôi đã gửi một email xác thực đến <strong>{email}</strong>.
+              Vui lòng kiểm tra hộp thư (kể cả thư rác) và nhấn vào liên kết để
+              xác thực tài khoản.
             </CardDescription>
           </CardHeader>
 
           <CardContent>
+            <div className="mb-4 text-sm text-muted-foreground text-center">
+              Hoặc bạn có thể nhập mã OTP nếu hệ thống yêu cầu.
+            </div>
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}

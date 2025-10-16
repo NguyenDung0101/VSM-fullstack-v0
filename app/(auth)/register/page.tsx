@@ -89,7 +89,7 @@ export default function RegisterPage() {
       localStorage.setItem("pending_verification_email", data.email);
 
       // Điều hướng đến trang hướng dẫn xác minh (nếu có), tạm thời ở lại trang
-      window.location.href = "/login";
+      window.location.href = "/verify";
     } catch (error: any) {
       toast({
         title: "Đăng ký thất bại",
@@ -309,7 +309,7 @@ export default function RegisterPage() {
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Đang đăng ký..." : "Đăng ký"}
+                  {isLoading ? "Đang xử lý..." : "Tiếp tục"}
                 </Button>
               </form>
             </Form>
