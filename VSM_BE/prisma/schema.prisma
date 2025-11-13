@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(uuid())
+  name               String
+  email              String              @unique
+  password           String?
+  phone              String?
+  avatar             String?
+  avatarId           String?             @unique
+  role               Role                @default(USER)
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  isVerified         Boolean             @default(false)
+  provider           String              @default("local")
+  verificationToken  String?
+  otpExpiresAt       DateTime? // Thêm field này để quản lý thời gian hết hạn OTP
+  // Thêm các field cho Supabase
+  supabaseUserId     String?             @unique
+  emailVerified      Boolean             @default(false)
+  newsletter         Boolean             @default(false)
+  comments           Comment[]
+  eventRegistrations EventRegistration[]
+  events             Event[]             @relation("EventAuthor")
+  galleryImages      GalleryImage[]      @relation("UserToGallery")
+  homepageSections   HomepageSection[]
+  image              Image?              @relation("UserToImage")
+  likes              Like[]
+  news               News[]              @relation("NewsAuthor")
+
+  @@map("users")
+}
+
+model Homepage {
+  id        String            @id @default(uuid())
+  name      String            @unique
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  sections  HomepageSection[]
+
+  @@map("homepages")
+}
+
+model HomepageSection {
+  id            String                @id @default(uuid())
+  homepageId    String
+  type          String
+  name          String?
+  order         Int                   @default(0)
+  enabled       Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  userId        String?
+  aboutFeatures AboutFeatures?
+  about         AboutSection?
+  countdown     CountdownTimer?
+  cta           CTASection?
+  events        EventsSection?
+  gallery       GallerySection?
+  hero          HeroSection?
+  homepage      Homepage              @relation(fields: [homepageId], references: [id], onDelete: Cascade)
+  User          User?                 @relation(fields: [userId], references: [id])
+  news          NewsSection?
+  story         SportsCommunityStory?
+  stats         StatsSection?
+  team          TeamSection?
+
+  @@index([homepageId, order])
+  @@map("homepage_sections")
+}
+
+model HeroSection {
+  id                String          @id @default(uuid())
+  title             String
+  subtitle          String
+  subtitle1         String?
+  backgroundImage   String
+  date              String
+  location          String
+  logo              String?
+  primaryButtonText String
+  showAnimations    Boolean         @default(true)
+  sectionId         String          @unique
+  section           HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("hero_sections")
+}
+
+model AboutSection {
+  id              String          @id @default(uuid())
+  title           String
+  title1          String
+  description     String
+  backgroundColor String?
+  sectionId       String          @unique
+  section         HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("about_sections")
+}
+
+model EventsSection {
+  id                String          @id @default(uuid())
+  title             String
+  title1            String
+  description       String
+  backgroundColor   String?
+  showViewAllButton Boolean         @default(true)
+  sectionId         String          @unique
+  section           HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("events_sections")
+}
+
+model NewsSection {
+  id                String          @id @default(uuid())
+  title             String
+  title1            String
+  description       String
+  postsPerRow       Int             @default(3)
+  showViewAllButton Boolean         @default(true)
+  sectionId         String          @unique
+  section           HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("news_sections")
+}
+
+model TeamSection {
+  id              String          @id @default(uuid())
+  title           String
+  description     String
+  backgroundColor String?
+  membersPerRow   Int             @default(4)
+  sectionId       String          @unique
+  section         HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("team_sections")
+}
+
+model GallerySection {
+  id           String          @id @default(uuid())
+  title        String
+  autoPlay     Boolean         @default(false)
+  showControls Boolean         @default(true)
+  sectionId    String          @unique
+  section      HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("gallery_sections")
+}
+
+model CTASection {
+  id              String          @id @default(uuid())
+  title           String
+  description     String
+  buttonText      String
+  backgroundColor String?
+  sectionId       String          @unique
+  section         HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("cta_sections")
+}
+
+model AboutFeatures {
+  id            String          @id @default(uuid())
+  features      Json
+  customClasses String?
+  sectionId     String          @unique
+  section       HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("about_features")
+}
+
+model CountdownTimer {
+  id            String          @id @default(uuid())
+  eventDate     String
+  customClasses String?
+  sectionId     String          @unique
+  section       HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("countdown_timers")
+}
+
+model SportsCommunityStory {
+  id            String          @id @default(uuid())
+  subtitle      String
+  title         String
+  paragraph1    String
+  paragraph2    String
+  paragraph3    String
+  paragraph4    String
+  image         String
+  statsValue    String
+  statsLabel    String
+  customClasses String?
+  sectionId     String          @unique
+  section       HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("sports_community_stories")
+}
+
+model StatsSection {
+  id            String          @id @default(uuid())
+  stats         Json
+  customClasses String?
+  sectionId     String          @unique
+  section       HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@map("stats_sections")
+}
+
+model Image {
+  id        String   @id @default(uuid())
+  url       String
+  type      String
+  userId    String?  @unique
+  eventId   String?  @unique
+  createdAt DateTime @default(now())
+  event     Event?   @relation("EventToImage", fields: [eventId], references: [id])
+  user      User?    @relation("UserToImage", fields: [userId], references: [id])
+
+  @@map("images")
+}
+
+model Event {
+  id                   String              @id @default(uuid())
+  name                 String
+  description          String
+  content              String
+  date                 DateTime
+  location             String
+  imageEvent           String?
+  maxParticipants      Int
+  currentParticipants  Int                 @default(0)
+  category             EventCategory
+  status               EventStatus         @default(UPCOMING)
+  distance             String?
+  registrationFee      Int?                @default(0)
+  requirements         String?
+  published            Boolean             @default(true)
+  featured             Boolean             @default(false)
+  registrationDeadline DateTime?
+  organizer            String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  authorId             String
+  imageId              String?             @unique
+  registrations        EventRegistration[]
+  author               User                @relation("EventAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  galleryImages        GalleryImage[]      @relation("EventToGallery")
+  image                Image?              @relation("EventToImage")
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id                String             @id @default(uuid())
+  fullName          String
+  email             String
+  phone             String
+  emergencyContact  String
+  emergencyPhone    String?
+  medicalConditions String?
+  experience        ExperienceLevel
+  status            RegistrationStatus @default(PENDING)
+  registeredAt      DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  eventId           String
+  userId            String
+  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_registrations")
+}
+
+model News {
+  id          String       @id @default(uuid())
+  title       String
+  excerpt     String
+  content     String
+  cover       String
+  authorId    String
+  category    NewsCategory
+  views       Int          @default(0)
+  featured    Boolean      @default(false)
+  status      NewsStatus   @default(DRAFT)
+  tags        String?
+  readingTime Int?         @default(5)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  comments    Comment[]
+  likes       Like[]
+  author      User         @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([category, featured])
+  @@index([authorId])
+  @@map("news")
+}
+
+model Comment {
+  id        String        @id @default(uuid())
+  content   String
+  newsId    String
+  userId    String
+  status    CommentStatus @default(PENDING)
+  parentId  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  news      News          @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([newsId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  newsId    String
+  userId    String
+  createdAt DateTime @default(now())
+  news      News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([newsId, userId])
+  @@map("likes")
+}
+
+model GalleryImage {
+  id           String          @id @default(uuid())
+  src          String
+  title        String
+  event        String
+  location     String
+  year         Int
+  category     GalleryCategory
+  description  String?
+  participants Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  eventId      String?
+  uploadedById String?
+  eventRelated Event?          @relation("EventToGallery", fields: [eventId], references: [id])
+  uploadedBy   User?           @relation("UserToGallery", fields: [uploadedById], references: [id])
+
+  @@index([category])
+  @@index([year])
+  @@index([eventId])
+  @@map("gallery_images")
+}
+
+enum GalleryCategory {
+  MARATHON
+  FUN_RUN
+  TRAIL_RUN
+  NIGHT_RUN
+}
+
+enum Role {
+  USER
+  EDITOR
+  ADMIN
+}
+
+enum EventCategory {
+  MARATHON
+  HALF_MARATHON
+  FIVE_K
+  TEN_K
+  FUN_RUN
+  TRAIL_RUN
+  NIGHT_RUN
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WAITLIST
+  CANCELLED
+}
+
+enum NewsCategory {
+  TRAINING
+  NUTRITION
+  EVENTS
+  TIPS
+}
+
+enum NewsStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
